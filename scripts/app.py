@@ -120,6 +120,12 @@ def render_top_scenarios_table(merged: pd.DataFrame):
         display_cols.append("risk_score")
     if "scenario_interest_score" in merged.columns:
         display_cols.append("scenario_interest_score")
+    
+    # Add risk detail columns if available
+    for c in ["min_ttc_s", "max_closing_speed_mps", "num_ttc_below_3s"]:
+        if c in merged.columns:
+            display_cols.append(c)
+    
     for c in [
         "min_sdc_distance_m",
         "num_close_interactions",
@@ -136,6 +142,10 @@ def render_top_scenarios_table(merged: pd.DataFrame):
         st.caption(
             "⚠️ Risk proxy = `scenario_interest_score` "
             "(true risk metrics not yet available)"
+        )
+    else:
+        st.caption(
+            "✅ Real risk score computed from TTC, closing speed, and TTC threshold breaches"
         )
 
 
@@ -180,6 +190,14 @@ def render_risk_overview(merged: pd.DataFrame):
         "**X-axis** = score values · **Y-axis** = number of scenarios in each range · "
         "**Purpose** = understand overall safety/risk profile of the scenario set"
     )
+
+    # Add note about real risk metrics
+    if has_risk_score(merged):
+        st.info(
+            "✅ **Real risk metrics** are now computed from Time-to-Collision (TTC), "
+            "closing speed, and TTC threshold breaches. "
+            "Lower TTC and higher closing speed increase the risk score."
+        )
 
 
 # ============================================================

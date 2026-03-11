@@ -80,6 +80,7 @@ def validate_json_exports(json_dir: Path) -> List[str]:
 
 def validate_data_consistency(scenarios_df: pd.DataFrame, tracks_df: pd.DataFrame, 
                             states_df: pd.DataFrame, metrics_df: pd.DataFrame,
+                            interaction_df: pd.DataFrame, risk_df: pd.DataFrame,
                             json_scenario_ids: List[str]):
     """Validate data consistency across tables."""
     
@@ -153,6 +154,27 @@ def validate_data_consistency(scenarios_df: pd.DataFrame, tracks_df: pd.DataFram
             if not missing_metrics and not extra_metrics:
                 print("✅ Metrics match scenarios exactly")
     
+    # Validate risk metrics specifically
+    if risk_df is not None and 'risk_score' in risk_df.columns:
+        valid_scores = risk_df['risk_score'].dropna()
+        if len(valid_scores) > 0:
+            min_score = valid_scores.min()
+            max_score = valid_scores.max()
+            if 0.0 <= min_score and max_score <= 1.0:
+                print("✅ Risk scores are in valid range [0, 1]")
+            else:
+                print(f"⚠️  Risk scores outside valid range: [{min_score:.3f}, {max_score:.3f}]")
+            
+            # Check for TTC values
+            if 'min_ttc_s' in risk_df.columns:
+                ttc_values = risk_df['min_ttc_s'].dropna()
+                if len(ttc_values) > 0:
+                    min_ttc = ttc_values.min()
+                    if min_ttc > 0:
+                        print("✅ TTC values are positive")
+                    else:
+                        print(f"⚠️  Some TTC values are non-positive: min={min_ttc:.3f}s")
+    
     # Validate expected scenario count
     expected_count = 10
     if scenarios_df is not None:
@@ -181,7 +203,9 @@ def main():
         (silver_dir / 'scenarios.parquet', 'Scenarios table'),
         (silver_dir / 'tracks.parquet', 'Tracks table'),
         (silver_dir / 'states.parquet', 'States table'),
-        (gold_dir / 'scenario_metrics.parquet', 'Scenario metrics table')
+        (gold_dir / 'scenario_metrics.parquet', 'Scenario metrics table'),
+        (gold_dir / 'interaction_metrics.parquet', 'Interaction metrics table'),
+        (gold_dir / 'risk_metrics.parquet', 'Risk metrics table')
     ]
     
     all_files_exist = True
@@ -212,6 +236,12 @@ def main():
     metrics_df = validate_parquet_file(gold_dir / 'scenario_metrics.parquet', 'Scenario metrics table')
     print()
     
+    interaction_df = validate_parquet_file(gold_dir / 'interaction_metrics.parquet', 'Interaction metrics table')
+    print()
+    
+    risk_df = validate_parquet_file(gold_dir / 'risk_metrics.parquet', 'Risk metrics table')
+    print()
+    
     print("📄 VALIDATING JSON EXPORTS")
     print("=" * 40)
     
@@ -220,7 +250,7 @@ def main():
     print()
     
     # Data consistency validation
-    validate_data_consistency(scenarios_df, tracks_df, states_df, metrics_df, json_scenario_ids)
+    validate_data_consistency(scenarios_df, tracks_df, states_df, metrics_df, interaction_df, risk_df, json_scenario_ids)
     
     print()
     print("=" * 60)

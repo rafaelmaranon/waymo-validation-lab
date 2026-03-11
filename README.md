@@ -80,11 +80,15 @@ protoc --proto_path=proto --python_out=proto \
 python scripts/waymo_real_parser.py
 python scripts/compute_basic_metrics.py
 python scripts/compute_interaction_metrics.py
+python scripts/compute_risk_metrics.py
 python scripts/validate_outputs.py
 
 # Generate visualizations
 python scripts/plot_first_scenario.py
 python scripts/animate_first_scenario.py
+
+# Launch dashboard
+streamlit run scripts/app.py
 ```
 
 ## 📁 Project Structure
@@ -109,6 +113,8 @@ waymo-validation-lab/
     ├── decode_one_scenario.py       # Proof-of-work single decode
     ├── compute_basic_metrics.py     # Calculate basic scenario metrics
     ├── compute_interaction_metrics.py # Calculate SDC interaction metrics
+    ├── compute_risk_metrics.py      # Calculate risk metrics from TTC/closing speed
+    ├── app.py                       # Streamlit validation dashboard
     ├── plot_first_scenario.py       # Generate trajectory plot
     ├── animate_first_scenario.py    # Create animation GIF
     └── validate_outputs.py          # Validate data consistency
@@ -145,6 +151,12 @@ waymo-validation-lab/
 - closest_actor_type, closest_actor_track_id
 - sdc_avg_speed_mps, sdc_max_speed_mps, sdc_distance_traveled_m
 - num_unique_close_actors, scenario_interest_score
+
+**risk_metrics**
+- scenario_id, risk_score, min_ttc_s, max_closing_speed_mps
+- num_ttc_below_3s, num_ttc_below_1_5s
+- closest_risk_actor_track_id, closest_risk_actor_type
+- min_risk_distance_m, risk_score_components
 
 ## ⚠️ Environment Notes
 
