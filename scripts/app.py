@@ -1275,12 +1275,12 @@ def render_explorer_gif_grid(
         <script>mermaid.initialize({startOnLoad:true,theme:'base',
             themeVariables:{fontSize:'13px',fontFamily:'sans-serif'}});</script>
         <style>
-            body { background:#f8f9fb; margin:0; padding:4px 0; }
+            body { background:#f8f9fb; margin:0; padding:4px 0; overflow:hidden; }
             .wrap { cursor:pointer; border-radius:8px; padding:6px 8px; background:#f0f2f6; }
             .hint { font-size:11px; color:#888; margin:0 0 4px 2px; font-family:sans-serif; user-select:none; }
         </style>
 
-        <div id="simple" class="wrap" onclick="toggle()">
+        <div id="simple" class="wrap" onclick="expand()">
             <p class="hint">&#9654; Click to expand full pipeline</p>
             <div class="mermaid">
             flowchart LR
@@ -1302,7 +1302,8 @@ def render_explorer_gif_grid(
             </div>
         </div>
 
-        <div id="detail" class="wrap" style="display:none;" onclick="toggle()">
+        <!-- Detail rendered off-screen so Mermaid processes it at load time -->
+        <div id="detail" class="wrap" style="position:fixed;left:-9999px;top:0;width:900px;visibility:hidden;" onclick="collapse()">
             <p class="hint">&#9660; Click to collapse</p>
             <div class="mermaid">
             %%{init: {'theme':'base'}}%%
@@ -1362,20 +1363,28 @@ def render_explorer_gif_grid(
         </div>
 
         <script>
-        function toggle() {
+        function expand() {
             var s = document.getElementById('simple');
             var d = document.getElementById('detail');
-            if (s.style.display !== 'none') {
-                s.style.display = 'none';
-                d.style.display = 'block';
-            } else {
-                d.style.display = 'none';
-                s.style.display = 'block';
-            }
+            s.style.display = 'none';
+            d.style.position = 'static';
+            d.style.left = 'auto';
+            d.style.width = 'auto';
+            d.style.visibility = 'visible';
+            if (window.frameElement) window.frameElement.style.height = '640px';
+        }
+        function collapse() {
+            var s = document.getElementById('simple');
+            var d = document.getElementById('detail');
+            d.style.position = 'fixed';
+            d.style.left = '-9999px';
+            d.style.visibility = 'hidden';
+            s.style.display = 'block';
+            if (window.frameElement) window.frameElement.style.height = '180px';
         }
         </script>
         """,
-        height=720,
+        height=180,
     )
 
     # ── How Scores Are Calculated (collapsed, 4 nested HTML details) ──
