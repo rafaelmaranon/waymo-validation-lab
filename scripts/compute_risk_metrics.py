@@ -175,7 +175,7 @@ def compute_scenario_risk(scenario_id: str, states_df: pd.DataFrame, tracks_df: 
         ttc_component = 0.0
 
     closing_component  = min(1.0, max_closing_speed / 40.0)
-    exposure_component = min(1.0, (num_ttc_below_2s + 2 * num_ttc_below_1s) / 150.0)
+    exposure_component = min(1.0, (num_ttc_below_3s + 2 * num_ttc_below_1_5s) / 150.0)
 
     # Composite risk score with power transform
     risk_score = (
