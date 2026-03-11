@@ -1217,6 +1217,41 @@ def render_mini_playback_prototype(
 
 
 # ============================================================
+# SECTION — METRIC SUMMARY CARDS
+# ============================================================
+
+def _mini_hist(ax, values, color):
+    ax.hist(values, bins=10, color=color, alpha=0.85, edgecolor="none")
+    ax.set_yticks([])
+    ax.tick_params(axis="x", labelsize=7, colors="#888888")
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_facecolor("#f8f9fb")
+    ax.grid(axis="y", color="#e0e0e0", linewidth=0.5)
+
+
+def _render_metric_cards(merged: pd.DataFrame):
+    cards = [
+        {"title": "Risk",       "col": "risk_score",               "color": "#e53935", "label": "Avg Risk Score",       "fmt": "{:.3f}"},
+        {"title": "Complexity", "col": "scenario_interest_score",  "color": "#1e88e5", "label": "Avg Complexity Score",  "fmt": "{:.3f}"},
+        {"title": "Comfort",    "col": "comfort_score",            "color": "#43a047", "label": "Avg Comfort Score",     "fmt": "{:.3f}"},
+    ]
+    cols = st.columns(3)
+    for col_ui, card in zip(cols, cards):
+        series = merged[card["col"]].dropna() if card["col"] in merged.columns else pd.Series([], dtype=float)
+        avg = series.mean() if not series.empty else None
+        with col_ui:
+            st.markdown(f"**{card['title']}**")
+            st.metric(label=card["label"], value=card["fmt"].format(avg) if avg is not None else "—")
+            if not series.empty:
+                fig, ax = plt.subplots(figsize=(3, 1.2))
+                fig.patch.set_facecolor("#f8f9fb")
+                _mini_hist(ax, series.values, card["color"])
+                st.pyplot(fig, use_container_width=True)
+                plt.close(fig)
+
+
+# ============================================================
 # SECTION — EXPLORER GIF GRID
 # ============================================================
 
@@ -1265,6 +1300,10 @@ def render_explorer_gif_grid(
 
     if st.session_state.get("explorer_selected"):
         st.success(f"✓ **{st.session_state.explorer_selected[:8]}** loaded — switch to the **Review** tab.")
+
+    # ── Metric summary cards ───────────────────────────────────
+    st.divider()
+    _render_metric_cards(merged)
 
     # ── Pipeline diagram (static PNG, button toggle) ──────────
     diagrams_dir = PROJECT_ROOT / "data" / "diagrams"
