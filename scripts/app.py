@@ -17,6 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from pathlib import Path
+import plotly.graph_objects as go
 
 # ---------- paths ----------
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -1404,78 +1405,148 @@ comfort = (0.25 * accel_component
             unsafe_allow_html=True,
         )
 
-    # ── Risk vs Complexity scatter ─────────────────────────────
+    # ── Interactive Plotly scatter ─────────────────────────────
     st.divider()
     st.markdown("#### Interaction Score vs. Complexity")
     st.caption("Higher interaction scores indicate tighter time margins, higher closing speeds, or repeated close interactions.")
 
     plot_df = merged.dropna(subset=["risk_score", "scenario_interest_score"]).copy()
     if not plot_df.empty:
-        fig, ax = plt.subplots(figsize=(8, 4.5))
-        fig.patch.set_facecolor("#0a0e1a")
-        ax.set_facecolor("#0a0e1a")
-
-        percentiles = plot_df["risk_score"].rank(pct=True)
-        colors = [
-            "#e53935" if p >= 0.95 else "#fb8c00" if p >= 0.85 else "#43a047"
-            for p in percentiles
+        # ── colour buckets (percentile-based, rename for UI) ──
+        pct = plot_df["risk_score"].rank(pct=True)
+        bucket_label = [
+            "Review now"  if p >= 0.95 else
+            "Review next" if p >= 0.85 else
+            "Monitor"
+            for p in pct
         ]
-        sizes = [50 + 130 * r for r in plot_df["risk_score"]]
+        bucket_color = {
+            "Review now":  "#e53935",
+            "Review next": "#fb8c00",
+            "Monitor":     "#43a047",
+        }
+        plot_df = plot_df.copy()
+        plot_df["_bucket"] = bucket_label
 
-        # subtle top-right quadrant shading
-        ax.fill_between([0.6, 1.05], [0.6, 0.6], [1.05, 1.05],
-                        color="#e53935", alpha=0.04)
+        # ── build optional tooltip columns safely ──
+        for col in ["comfort_score", "min_ttc_s", "max_closing_speed_mps",
+                    "num_tracks", "num_ttc_below_3s"]:
+            if col not in plot_df.columns:
+                plot_df[col] = float("nan")
 
-        ax.scatter(
-            plot_df["scenario_interest_score"],
-            plot_df["risk_score"],
-            c=colors, s=sizes, alpha=0.88, edgecolors="#ffffff18", linewidths=0.4,
-            zorder=3,
+        fig_pl = go.Figure()
+
+        for bucket in ["Monitor", "Review next", "Review now"]:
+            sub = plot_df[plot_df["_bucket"] == bucket]
+            if sub.empty:
+                continue
+
+            def _fmt(v, fmt="{:.3f}"):
+                return fmt.format(v) if pd.notna(v) else "—"
+
+            custom = sub[["scenario_id", "risk_score", "scenario_interest_score",
+                          "comfort_score", "min_ttc_s", "max_closing_speed_mps",
+                          "num_tracks", "num_ttc_below_3s"]].values
+
+            fig_pl.add_trace(go.Scatter(
+                x=sub["scenario_interest_score"],
+                y=sub["risk_score"],
+                mode="markers",
+                name=bucket,
+                marker=dict(
+                    color=bucket_color[bucket],
+                    size=8,
+                    opacity=0.82,
+                    line=dict(width=0.5, color="rgba(255,255,255,0.15)"),
+                ),
+                customdata=custom,
+                hovertemplate=(
+                    "<b>%{customdata[0]}</b><br>"
+                    "Interaction Score: %{customdata[1]:.3f}<br>"
+                    "Complexity Score:  %{customdata[2]:.3f}<br>"
+                    "Comfort Score:     %{customdata[3]:.3f}<br>"
+                    "Min TTC:           %{customdata[4]:.2f} s<br>"
+                    "Max Closing Speed: %{customdata[5]:.1f} m/s<br>"
+                    "Actors:            %{customdata[6]:.0f}<br>"
+                    "<extra></extra>"
+                ),
+            ))
+
+        # quadrant reference lines
+        fig_pl.add_hline(y=0.6, line=dict(color="#cccccc", width=1, dash="dot"))
+        fig_pl.add_vline(x=0.6, line=dict(color="#cccccc", width=1, dash="dot"))
+
+        fig_pl.update_layout(
+            height=420,
+            margin=dict(l=50, r=20, t=20, b=50),
+            paper_bgcolor="#ffffff",
+            plot_bgcolor="#ffffff",
+            xaxis=dict(
+                title="Complexity Score",
+                range=[-0.02, 1.05],
+                gridcolor="#eeeeee",
+                zeroline=False,
+                tickfont=dict(size=11, color="#6b7a99"),
+                title_font=dict(size=12, color="#6b7a99"),
+            ),
+            yaxis=dict(
+                title="Interaction Score",
+                range=[-0.02, 1.05],
+                gridcolor="#eeeeee",
+                zeroline=False,
+                tickfont=dict(size=11, color="#6b7a99"),
+                title_font=dict(size=12, color="#6b7a99"),
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom", y=1.01,
+                xanchor="right", x=1,
+                font=dict(size=11),
+                bgcolor="rgba(0,0,0,0)",
+                borderwidth=0,
+            ),
+            hoverlabel=dict(
+                bgcolor="#ffffff",
+                bordercolor="#d1d9e6",
+                font=dict(size=12, color="#1a2540", family="monospace"),
+            ),
         )
 
-        for _, row in plot_df.nlargest(3, "risk_score").iterrows():
-            ax.annotate(
-                row["scenario_id"][:8],
-                (row["scenario_interest_score"], row["risk_score"]),
-                textcoords="offset points", xytext=(7, 4),
-                fontsize=7, color="#8899bb",
-                fontfamily="monospace",
-            )
+        event = st.plotly_chart(
+            fig_pl,
+            use_container_width=True,
+            on_select="rerun",
+            selection_mode="points",
+            key="scatter_select",
+        )
 
-        ax.set_xlabel("Complexity Score", color="#6b7a99", fontsize=9)
-        ax.set_ylabel("Interaction Score", color="#6b7a99", fontsize=9)
-        ax.tick_params(colors="#4a5568", labelsize=8)
-        for spine in ax.spines.values():
-            spine.set_edgecolor("#1e2d40")
-        ax.grid(True, color="#1e2d40", linewidth=0.5, alpha=0.7, zorder=0)
-        ax.axhline(0.6, color="#e5393530", linewidth=1, linestyle="--", zorder=2)
-        ax.axvline(0.6, color="#e5393530", linewidth=1, linestyle="--", zorder=2)
-        ax.set_xlim(-0.02, 1.05)
-        ax.set_ylim(-0.02, 1.05)
-        fig.tight_layout(pad=1.5)
-        st.pyplot(fig, use_container_width=True)
-        plt.close(fig)
+        st.caption("⬆ Top-right = priority review zone")
+
+        # ── Selected Scenario panel ──────────────────────────────
+        pts = (event.selection.get("points") or []) if event and hasattr(event, "selection") else []
+        if pts:
+            pt = pts[0]
+            cd = pt.get("customdata", [])
+            def _s(i, fmt="{:.3f}"):
+                try:
+                    v = cd[i]
+                    return fmt.format(float(v)) if v is not None and str(v) != "nan" else "—"
+                except Exception:
+                    return "—"
+
+            st.markdown("---")
+            st.markdown("**Selected Scenario**")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Scenario ID",       _s(0, "{}"))
+            c1.metric("Actors",            _s(6, "{:.0f}"))
+            c2.metric("Interaction Score", _s(1))
+            c2.metric("Complexity Score",  _s(2))
+            c3.metric("Comfort Score",     _s(3))
+            c3.metric("TTC < 3 s events",  _s(7, "{:.0f}"))
+            c4.metric("Min TTC",           _s(4, "{:.2f} s"))
+            c4.metric("Max Closing Speed", _s(5, "{:.1f} m/s"))
     else:
         st.info("Not enough data to render Interaction Score vs. Complexity chart.")
-
-    st.markdown(
-        """
-**Scenario Triage Guide (Autonomous Vehicle Validation)**
-
-Scenarios are ranked by **interaction intensity relative to the dataset**.
-
-🔴 **Critical Interaction (Top 5%)**  
-Scenarios with the tightest margins between actors (low TTC, high closing speed, or repeated proximity).
-
-🟠 **Elevated Interaction (Next 10%)**  
-Dense multi-actor interactions that may require additional validation review.
-
-🟢 **Nominal Interaction**  
-Typical traffic flow scenarios with normal spacing between actors.
-
-**Validation workflow:** Start with **Critical Interaction scenarios in the top-right quadrant** (high interaction + high complexity).
-        """
-    )
 
 
 # ============================================================
