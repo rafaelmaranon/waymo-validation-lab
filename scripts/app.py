@@ -1240,15 +1240,24 @@ def _render_metric_cards(merged: pd.DataFrame):
     for col_ui, card in zip(cols, cards):
         series = merged[card["col"]].dropna() if card["col"] in merged.columns else pd.Series([], dtype=float)
         avg = series.mean() if not series.empty else None
+        val_str = card["fmt"].format(avg) if avg is not None else "—"
         with col_ui:
-            st.markdown(f"**{card['title']}**")
-            st.metric(label=card["label"], value=card["fmt"].format(avg) if avg is not None else "—")
+            st.markdown(
+                f'<div class="av-card">'
+                f'<div class="av-card-title">{card["title"]}</div>'
+                f'<div class="av-card-value" style="color:{card["color"]}">{val_str}</div>'
+                f'<div class="av-card-sub">{card["label"]}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
             if not series.empty:
                 fig, ax = plt.subplots(figsize=(3, 1.5))
-                fig.patch.set_facecolor("#f8f9fb")
+                fig.patch.set_facecolor("#0d1626")
+                ax.set_facecolor("#0d1626")
                 _mini_hist(ax, series.values, card["color"])
-                ax.set_xlabel(card["xlabel"], fontsize=10)
-                ax.set_ylabel("Number of Scenarios", fontsize=10)
+                ax.set_xlabel(card["xlabel"], fontsize=8, color="#6b7a99")
+                ax.set_ylabel("Count", fontsize=8, color="#6b7a99")
+                ax.tick_params(colors="#4a5568")
                 st.pyplot(fig, use_container_width=True)
                 plt.close(fig)
 
@@ -1404,41 +1413,48 @@ comfort = (0.25 * accel_component
 
     plot_df = merged.dropna(subset=["risk_score", "scenario_interest_score"]).copy()
     if not plot_df.empty:
-        fig, ax = plt.subplots(figsize=(7, 4))
-        fig.patch.set_facecolor("#0e1117")
-        ax.set_facecolor("#0e1117")
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+        fig.patch.set_facecolor("#0a0e1a")
+        ax.set_facecolor("#0a0e1a")
 
         percentiles = plot_df["risk_score"].rank(pct=True)
         colors = [
             "#e53935" if p >= 0.95 else "#fb8c00" if p >= 0.85 else "#43a047"
             for p in percentiles
         ]
-        sizes = [60 + 120 * r for r in plot_df["risk_score"]]
+        sizes = [50 + 130 * r for r in plot_df["risk_score"]]
+
+        # subtle top-right quadrant shading
+        ax.fill_between([0.6, 1.05], [0.6, 0.6], [1.05, 1.05],
+                        color="#e53935", alpha=0.04)
 
         ax.scatter(
             plot_df["scenario_interest_score"],
             plot_df["risk_score"],
-            c=colors, s=sizes, alpha=0.85, edgecolors="#ffffff22", linewidths=0.5,
+            c=colors, s=sizes, alpha=0.88, edgecolors="#ffffff18", linewidths=0.4,
+            zorder=3,
         )
 
         for _, row in plot_df.nlargest(3, "risk_score").iterrows():
             ax.annotate(
                 row["scenario_id"][:8],
                 (row["scenario_interest_score"], row["risk_score"]),
-                textcoords="offset points", xytext=(6, 4),
-                fontsize=7, color="#ffffffaa",
+                textcoords="offset points", xytext=(7, 4),
+                fontsize=7, color="#8899bb",
+                fontfamily="monospace",
             )
 
-        ax.set_xlabel("Complexity Score", color="#aaaaaa", fontsize=10)
-        ax.set_ylabel("Interaction Score", color="#aaaaaa", fontsize=10)
-        ax.tick_params(colors="#888888")
+        ax.set_xlabel("Complexity Score", color="#6b7a99", fontsize=9)
+        ax.set_ylabel("Interaction Score", color="#6b7a99", fontsize=9)
+        ax.tick_params(colors="#4a5568", labelsize=8)
         for spine in ax.spines.values():
-            spine.set_edgecolor("#333333")
-        ax.axhline(0.6, color="#e5393555", linewidth=1, linestyle="--")
-        ax.axvline(0.6, color="#e5393555", linewidth=1, linestyle="--")
-        ax.set_xlim(-0.05, 1.05)
-        ax.set_ylim(-0.05, 1.05)
-        fig.tight_layout()
+            spine.set_edgecolor("#1e2d40")
+        ax.grid(True, color="#1e2d40", linewidth=0.5, alpha=0.7, zorder=0)
+        ax.axhline(0.6, color="#e5393530", linewidth=1, linestyle="--", zorder=2)
+        ax.axvline(0.6, color="#e5393530", linewidth=1, linestyle="--", zorder=2)
+        ax.set_xlim(-0.02, 1.05)
+        ax.set_ylim(-0.02, 1.05)
+        fig.tight_layout(pad=1.5)
         st.pyplot(fig, use_container_width=True)
         plt.close(fig)
     else:
@@ -1471,34 +1487,162 @@ Typical traffic flow scenarios with normal spacing between actors.
 def main():
     st.set_page_config(
         page_title="Waymo Validation Lab",
-        page_icon="🚗",
+        page_icon="",
         layout="wide",
     )
 
-    st.title("🚗 Waymo Validation Lab")
-    st.caption(
-        "Safety scoring dashboard built on real "
-        "[Waymo Open Dataset](https://waymo.com/open/) logs. "
-        "Risk, complexity, and comfort metrics across 10 AV scenarios."
+    # ── global CSS ────────────────────────────────────────────────────────────
+    st.markdown(
+        """
+        <style>
+        /* ── page background ── */
+        .stApp { background-color: #0a0e1a; }
+        section[data-testid="stSidebar"] { background-color: #080c14; }
+
+        /* ── hide default Streamlit header decoration ── */
+        header[data-testid="stHeader"] { background: transparent; }
+
+        /* ── tabs ── */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 4px;
+            border-bottom: 1px solid #1e2d40;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background: transparent;
+            color: #6b7a99;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 8px 20px;
+            border-radius: 4px 4px 0 0;
+        }
+        .stTabs [aria-selected="true"] {
+            background: #0d1626 !important;
+            color: #e2e8f0 !important;
+            border-top: 2px solid #3b82f6;
+        }
+
+        /* ── metric cards ── */
+        .av-card {
+            background: #0d1626;
+            border: 1px solid #1e2d40;
+            border-radius: 8px;
+            padding: 18px 20px 12px 20px;
+            margin-bottom: 8px;
+        }
+        .av-card-title {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #6b7a99;
+            margin-bottom: 4px;
+        }
+        .av-card-value {
+            font-family: 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace;
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            line-height: 1.1;
+        }
+        .av-card-sub {
+            font-size: 0.72rem;
+            color: #4a5568;
+            margin-top: 4px;
+        }
+
+        /* ── sidebar labels ── */
+        .av-sidebar-logo {
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #3b82f6;
+            margin-bottom: 2px;
+        }
+        .av-sidebar-sub {
+            font-size: 0.65rem;
+            color: #4a5568;
+            letter-spacing: 0.06em;
+        }
+
+        /* ── footer ── */
+        .av-footer {
+            margin-top: 48px;
+            padding-top: 16px;
+            border-top: 1px solid #1e2d40;
+            font-size: 0.65rem;
+            color: #4a5568;
+            letter-spacing: 0.04em;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
 
-    # ── sidebar: project info ──────────────────────────────────────────────────
+    # ── page header ───────────────────────────────────────────────────────────
+    st.markdown(
+        """
+        <div style="padding: 24px 0 20px 0; border-bottom: 1px solid #1e2d40; margin-bottom: 24px;">
+            <div style="font-size:0.72rem; font-weight:800; letter-spacing:0.18em;
+                        text-transform:uppercase; color:#3b82f6; margin-bottom:6px;">
+                Waymo Validation Lab
+            </div>
+            <div style="font-size:1.75rem; font-weight:700; color:#e2e8f0; line-height:1.15;">
+                Scenario Safety Dashboard
+            </div>
+            <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                <span style="background:#0d1626; border:1px solid #1e2d40; border-radius:4px;
+                             padding:3px 10px; font-size:0.68rem; color:#6b7a99;
+                             font-family:monospace; letter-spacing:0.05em;">
+                    Waymo Open Dataset
+                </span>
+                <span style="background:#0d1626; border:1px solid #1e2d40; border-radius:4px;
+                             padding:3px 10px; font-size:0.68rem; color:#6b7a99;
+                             font-family:monospace; letter-spacing:0.05em;">
+                    250 scenarios &nbsp;·&nbsp; Validation Split
+                </span>
+                <span style="background:#0d1626; border:1px solid #1e2d40; border-radius:4px;
+                             padding:3px 10px; font-size:0.68rem; color:#6b7a99;
+                             font-family:monospace; letter-spacing:0.05em;">
+                    Zero synthetic data
+                </span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── sidebar ───────────────────────────────────────────────────────────────
     with st.sidebar:
-        st.markdown("### About")
         st.markdown(
-            "Real AV scenario logs decoded from Waymo protobuf format.  \n"
-            "Zero TensorFlow, zero synthetic data.  \n\n"
-            "**Pipeline:** Raw TFRecord → Silver parquet → Gold metrics → Dashboard"
+            '<div class="av-sidebar-logo">Waymo Validation Lab</div>'
+            '<div class="av-sidebar-sub">AV Scenario Analysis Platform</div>',
+            unsafe_allow_html=True,
         )
         st.divider()
-        st.markdown("**Scoring defaults (Balanced preset)**")
         st.markdown(
-            "- TTC Warning: 3.0 s  \n"
-            "- TTC Critical: 1.5 s  \n"
-            "- Interaction radius: 5 m"
+            '<div style="font-size:0.72rem; color:#8899bb; line-height:1.8;">'
+            '250 scenarios &nbsp;·&nbsp; 18 151 tracks<br>'
+            'Source: Waymo Open Dataset<br>'
+            'Decoded via protobuf — zero TF<br>'
+            'Pipeline: TFRecord → Silver → Gold'
+            '</div>',
+            unsafe_allow_html=True,
         )
         st.divider()
-        st.caption("🔧 Extended tooling available in `app_debug.py`")
+        with st.expander("Scoring Parameters"):
+            st.markdown(
+                '<div style="font-size:0.72rem; color:#8899bb; line-height:2;">'
+                'TTC Warning &nbsp;&nbsp;&nbsp; 2.0 s<br>'
+                'TTC Critical &nbsp;&nbsp;&nbsp; 0.8 s<br>'
+                'Interaction radius &nbsp; 5 m'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+        st.divider()
+        st.caption("Extended tooling: `app_debug.py`")
 
     # Fixed scoring parameters for the public app
     ttc_warning          = 3.0
@@ -1558,7 +1702,7 @@ def main():
 
     # ── 2 top-level tabs ───────────────────────────────────────────────────────────────────
     explorer_tab, insights_tab = st.tabs(
-        ["🗺️  Explorer", "  Insights"]
+        ["  Scenario Explorer", "  Fleet Insights"]
     )
 
     with explorer_tab:
@@ -1578,6 +1722,15 @@ def main():
         render_risk_vs_complexity(merged)
         st.divider()
         render_comfort_panel(comfort_metrics)
+
+    st.markdown(
+        '<div class="av-footer">'
+        'Data: <a href="https://waymo.com/open/" style="color:#3b82f6; text-decoration:none;">Waymo Open Dataset</a>'
+        ' &nbsp;·&nbsp; Validation Split &nbsp;·&nbsp; Decoded via waymo-open-dataset protobufs'
+        ' &nbsp;·&nbsp; Zero TensorFlow &nbsp;·&nbsp; Zero synthetic data'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":
