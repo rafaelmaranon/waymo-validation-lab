@@ -1284,7 +1284,68 @@ def render_explorer_gif_grid(
 
     st.divider()
 
-    components.html(
+    diag_col, score_col = st.columns([1.1, 0.9])
+
+    with score_col:
+        st.markdown("#### How Scores Are Calculated")
+
+        with st.expander("🔴 Risk Score Logic"):
+            st.markdown(
+                "Risk ≈ **Time × Severity × Exposure**\n\n"
+                "| Dimension | Metric |\n|---|---|\n"
+                "| Time margin | `min_ttc_s` |\n"
+                "| Severity | `max_closing_speed_mps` |\n"
+                "| Exposure | `num_ttc_below_3s / below_1_5s` |"
+            )
+            st.code(
+                "risk = 0.5 * ttc_component\n"
+                "     + 0.3 * closing_component\n"
+                "     + 0.2 * breach_component\n\n"
+                "closing = min(1.0, closing_speed / 15.0)\n"
+                "breach  = min(1.0, (below_3s + 2*below_1.5s) / 20.0)",
+                language="python",
+            )
+
+        with st.expander("🔵 Complexity Score Logic"):
+            st.code(
+                "complexity = (\n"
+                "  0.30 * min(1.0, 10.0 / (min_dist + 0.1))   # proximity\n"
+                "+ 0.25 * min(1.0, close_interactions / 50.0)  # density\n"
+                "+ 0.20 * min(1.0, sdc_max_speed / 25.0)       # speed\n"
+                "+ 0.15 * min(1.0, unique_actors / 10.0)        # diversity\n"
+                "+ 0.10 * min(1.0, sdc_distance / 200.0)        # coverage\n"
+                ")",
+                language="python",
+            )
+
+        with st.expander("🟢 Comfort Score Logic"):
+            st.code(
+                "comfort = (0.25 * accel_component\n"
+                "         + 0.30 * decel_component\n"
+                "         + 0.30 * jerk_component\n"
+                "         + 0.15 * heading_component)\n\n"
+                "# thresholds: accel/decel > 4 m/s², jerk > 10 m/s³\n"
+                "# heading_rate > 0.8 rad/s  |  dt = 0.1 s (10 Hz)",
+                language="python",
+            )
+
+        with st.expander("📖 Metric Glossary"):
+            st.markdown(
+                "| Metric | Definition |\n|---|---|\n"
+                "| `min_ttc_s` | Min Time-to-Collision across all actor/timestep pairs |\n"
+                "| `max_closing_speed_mps` | Max closing speed while approaching |\n"
+                "| `num_ttc_below_3s` | Actor/timestep pairs where TTC < 3 s |\n"
+                "| `num_ttc_below_1_5s` | Actor/timestep pairs where TTC < 1.5 s |\n"
+                "| `min_sdc_distance_m` | Closest any actor got to the SDC |\n"
+                "| `sdc_max_speed_mps` | SDC peak speed in scenario |\n"
+                "| `num_tracks` | Total actor tracks in scenario |\n"
+                "| `risk_score` | Composite safety risk [0–1] |\n"
+                "| `comfort_score` | Ride abruptness [0–1] |\n"
+                "| `scenario_interest_score` | Interaction complexity [0–1] |"
+            )
+
+    with diag_col:
+        components.html(
         """
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
         <script>mermaid.initialize({ startOnLoad: true, theme: 'base',
