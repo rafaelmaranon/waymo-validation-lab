@@ -124,12 +124,12 @@ def has_comfort_score(df: pd.DataFrame) -> bool:
 
 
 def risk_col(df: pd.DataFrame) -> str:
-    return "risk_score" if has_risk_score(df) else "scenario_interest_score"
+    return "interaction_percentile" if "interaction_percentile" in df.columns else ("risk_score" if has_risk_score(df) else "scenario_interest_score")
 
 
 def risk_label(df: pd.DataFrame) -> str:
-    if has_risk_score(df):
-        return "Interaction Risk Score"
+    if "interaction_percentile" in df.columns:
+        return "Interaction Criticality Percentile"
     return "Interaction Risk Proxy (scenario_interest_score)"
 
 
@@ -219,13 +219,13 @@ def render_top_scenarios_table(merged: pd.DataFrame):
 # ============================================================
 
 def render_risk_overview(merged: pd.DataFrame, ttc_warning: float, ttc_critical: float):
-    st.header("3 — Interaction Risk Overview")
+    st.header("3 — Interaction Criticality Overview")
 
     col = risk_col(merged)
     label = risk_label(merged)
 
     if col not in merged.columns or merged[col].isna().all():
-        st.warning("No risk-related metric available.")
+        st.warning("No interaction criticality metric available.")
         return
 
     sorted_df = merged.sort_values(col, ascending=False).head(10)
@@ -381,7 +381,7 @@ def render_risk_vs_complexity(merged: pd.DataFrame):
 
     ax.set_xlabel(risk_label(merged))
     ax.set_ylabel("Close Interactions (< 5 m)")
-    ax.set_title("Interaction Risk vs Complexity")
+    ax.set_title("Interaction Criticality vs Complexity")
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
     st.pyplot(fig)
@@ -1232,7 +1232,7 @@ def _mini_hist(ax, values, color):
 
 def _render_metric_cards(merged: pd.DataFrame):
     cards = [
-        {"title": "Interaction Risk", "col": "risk_score",              "color": "#e53935", "label": "Avg Interaction Risk Score", "fmt": "{:.3f}"},
+        {"title": "Interaction Criticality", "col": "interaction_percentile", "color": "#e53935", "label": "Avg Interaction Criticality Percentile", "fmt": "{:.1%}"},
         {"title": "Complexity", "col": "scenario_interest_score",  "color": "#1e88e5", "label": "Avg Complexity Score",  "fmt": "{:.3f}"},
         {"title": "Comfort",    "col": "comfort_score",            "color": "#43a047", "label": "Avg Comfort Score",     "fmt": "{:.3f}"},
     ]
@@ -1267,7 +1267,7 @@ def render_explorer_gif_grid(
     previews_dir = PROJECT_ROOT / "data" / "previews"
 
     st.subheader("Scenario Explorer")
-    st.caption("Top 3 scenarios by interaction risk score. GIFs use real Waymo map geometry. Click **Review →** to investigate.")
+    st.caption("Top 3 scenarios by interaction criticality. GIFs use real Waymo map geometry.")
 
     available = [sid for sid in review_sorted_ids if (previews_dir / f"{sid}.gif").exists()]
 
@@ -1397,37 +1397,37 @@ comfort = (0.25 * accel_component
 
     # ── Risk vs Complexity scatter ─────────────────────────────
     st.divider()
-    st.markdown("#### Interaction Risk vs. Complexity")
-    st.caption("Each point is a scenario. High interaction-risk + high-complexity scenarios (top-right) are the most critical to review.")
+    st.markdown("#### Interaction Criticality vs. Complexity")
+    st.caption("Interaction criticality is shown as a percentile within this dataset. Higher values indicate tighter or denser actor interactions relative to other scenarios in the sample.")
 
-    plot_df = merged.dropna(subset=["risk_score", "scenario_interest_score"]).copy()
+    plot_df = merged.dropna(subset=["interaction_percentile", "scenario_interest_score"]).copy()
     if not plot_df.empty:
         fig, ax = plt.subplots(figsize=(7, 4))
         fig.patch.set_facecolor("#0e1117")
         ax.set_facecolor("#0e1117")
 
         colors = [
-            "#e53935" if r >= 0.6 else "#fb8c00" if r >= 0.3 else "#43a047"
-            for r in plot_df["risk_score"]
+            "#e53935" if p >= 0.6 else "#fb8c00" if p >= 0.3 else "#43a047"
+            for p in plot_df["interaction_percentile"]
         ]
-        sizes = [60 + 120 * r for r in plot_df["risk_score"]]
+        sizes = [60 + 120 * p for p in plot_df["interaction_percentile"]]
 
         ax.scatter(
             plot_df["scenario_interest_score"],
-            plot_df["risk_score"],
+            plot_df["interaction_percentile"],
             c=colors, s=sizes, alpha=0.85, edgecolors="#ffffff22", linewidths=0.5,
         )
 
-        for _, row in plot_df.nlargest(3, "risk_score").iterrows():
+        for _, row in plot_df.nlargest(3, "interaction_percentile").iterrows():
             ax.annotate(
                 row["scenario_id"][:8],
-                (row["scenario_interest_score"], row["risk_score"]),
+                (row["scenario_interest_score"], row["interaction_percentile"]),
                 textcoords="offset points", xytext=(6, 4),
                 fontsize=7, color="#ffffffaa",
             )
 
         ax.set_xlabel("Complexity Score", color="#aaaaaa", fontsize=10)
-        ax.set_ylabel("Interaction Risk Score", color="#aaaaaa", fontsize=10)
+        ax.set_ylabel("Interaction Criticality Percentile", color="#aaaaaa", fontsize=10)
         ax.tick_params(colors="#888888")
         for spine in ax.spines.values():
             spine.set_edgecolor("#333333")
@@ -1439,7 +1439,7 @@ comfort = (0.25 * accel_component
         st.pyplot(fig, use_container_width=True)
         plt.close(fig)
     else:
-        st.info("Not enough data to render Interaction Risk vs. Complexity chart.")
+        st.info("Not enough data to render Interaction Criticality vs. Complexity chart.")
 
 
 # ============================================================
@@ -1514,6 +1514,12 @@ def main():
     merged = build_merged_table(
         scenarios, scenario_metrics, interaction_metrics, risk_metrics, comfort_metrics
     )
+
+    # ── derived UI-facing metric: interaction percentile ──────────────────────────────────
+    if "risk_score" in merged.columns and merged["risk_score"].notna().any():
+        merged["interaction_percentile"] = merged["risk_score"].rank(pct=True)
+    else:
+        merged["interaction_percentile"] = pd.Series([np.nan] * len(merged), index=merged.index)
 
     states_df, tracks_df = load_silver_for_playback(
         str(SILVER_DIR / "states.parquet"),
