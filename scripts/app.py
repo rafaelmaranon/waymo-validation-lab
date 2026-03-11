@@ -1494,8 +1494,8 @@ def main():
         """
         <style>
         /* ── page background ── */
-        .stApp { background-color: #0a0e1a; }
-        section[data-testid="stSidebar"] { background-color: #080c14; }
+        .stApp { background-color: #f4f6fa; }
+        section[data-testid="stSidebar"] { background-color: #ffffff; }
 
         /* ── hide default Streamlit header decoration ── */
         header[data-testid="stHeader"] { background: transparent; }
@@ -1503,11 +1503,11 @@ def main():
         /* ── tabs ── */
         .stTabs [data-baseweb="tab-list"] {
             gap: 4px;
-            border-bottom: 1px solid #1e2d40;
+            border-bottom: 1px solid #d1d9e6;
         }
         .stTabs [data-baseweb="tab"] {
             background: transparent;
-            color: #6b7a99;
+            color: #8899bb;
             font-size: 0.78rem;
             font-weight: 600;
             letter-spacing: 0.08em;
@@ -1516,15 +1516,15 @@ def main():
             border-radius: 4px 4px 0 0;
         }
         .stTabs [aria-selected="true"] {
-            background: #0d1626 !important;
-            color: #e2e8f0 !important;
+            background: #ffffff !important;
+            color: #1a2540 !important;
             border-top: 2px solid #3b82f6;
         }
 
         /* ── metric cards ── */
         .av-card {
-            background: #0d1626;
-            border: 1px solid #1e2d40;
+            background: #ffffff;
+            border: 1px solid #d1d9e6;
             border-radius: 8px;
             padding: 18px 20px 12px 20px;
             margin-bottom: 8px;
@@ -1534,19 +1534,19 @@ def main():
             font-weight: 700;
             letter-spacing: 0.12em;
             text-transform: uppercase;
-            color: #6b7a99;
+            color: #8899bb;
             margin-bottom: 4px;
         }
         .av-card-value {
             font-family: 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace;
             font-size: 1.9rem;
             font-weight: 700;
-            color: #e2e8f0;
+            color: #1a2540;
             line-height: 1.1;
         }
         .av-card-sub {
             font-size: 0.72rem;
-            color: #4a5568;
+            color: #8899bb;
             margin-top: 4px;
         }
 
@@ -1561,7 +1561,7 @@ def main():
         }
         .av-sidebar-sub {
             font-size: 0.65rem;
-            color: #4a5568;
+            color: #8899bb;
             letter-spacing: 0.06em;
         }
 
@@ -1569,9 +1569,9 @@ def main():
         .av-footer {
             margin-top: 48px;
             padding-top: 16px;
-            border-top: 1px solid #1e2d40;
+            border-top: 1px solid #d1d9e6;
             font-size: 0.65rem;
-            color: #4a5568;
+            color: #8899bb;
             letter-spacing: 0.04em;
         }
         </style>
@@ -1582,27 +1582,27 @@ def main():
     # ── page header ───────────────────────────────────────────────────────────
     st.markdown(
         """
-        <div style="padding: 24px 0 20px 0; border-bottom: 1px solid #1e2d40; margin-bottom: 24px;">
+        <div style="padding: 24px 0 20px 0; border-bottom: 1px solid #d1d9e6; margin-bottom: 24px;">
             <div style="font-size:0.72rem; font-weight:800; letter-spacing:0.18em;
                         text-transform:uppercase; color:#3b82f6; margin-bottom:6px;">
                 Waymo Validation Lab
             </div>
-            <div style="font-size:1.75rem; font-weight:700; color:#e2e8f0; line-height:1.15;">
+            <div style="font-size:1.75rem; font-weight:700; color:#1a2540; line-height:1.15;">
                 Scenario Safety Dashboard
             </div>
             <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                <span style="background:#0d1626; border:1px solid #1e2d40; border-radius:4px;
-                             padding:3px 10px; font-size:0.68rem; color:#6b7a99;
+                <span style="background:#eef2fa; border:1px solid #d1d9e6; border-radius:4px;
+                             padding:3px 10px; font-size:0.68rem; color:#5a6e99;
                              font-family:monospace; letter-spacing:0.05em;">
                     Waymo Open Dataset
                 </span>
-                <span style="background:#0d1626; border:1px solid #1e2d40; border-radius:4px;
-                             padding:3px 10px; font-size:0.68rem; color:#6b7a99;
+                <span style="background:#eef2fa; border:1px solid #d1d9e6; border-radius:4px;
+                             padding:3px 10px; font-size:0.68rem; color:#5a6e99;
                              font-family:monospace; letter-spacing:0.05em;">
                     250 scenarios &nbsp;·&nbsp; Validation Split
                 </span>
-                <span style="background:#0d1626; border:1px solid #1e2d40; border-radius:4px;
-                             padding:3px 10px; font-size:0.68rem; color:#6b7a99;
+                <span style="background:#eef2fa; border:1px solid #d1d9e6; border-radius:4px;
+                             padding:3px 10px; font-size:0.68rem; color:#5a6e99;
                              font-family:monospace; letter-spacing:0.05em;">
                     Zero synthetic data
                 </span>
