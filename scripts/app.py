@@ -1267,12 +1267,7 @@ def render_explorer_gif_grid(
             trk  = str(int(num_tracks)) if num_tracks is not None else "—"
 
             with col:
-                gif_b64 = base64.b64encode(gif_path.read_bytes()).decode()
-                st.markdown(
-                    f'<img src="data:image/gif;base64,{gif_b64}" '
-                    f'style="width:100%;border-radius:6px;display:block;"/>',
-                    unsafe_allow_html=True,
-                )
+                st.image(gif_path.read_bytes(), use_container_width=True)
                 st.markdown(
                     f"<div style='font-family:monospace;font-size:10px;color:#888;"
                     f"margin:3px 0 4px 0;line-height:1.5;'>"
