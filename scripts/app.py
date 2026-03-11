@@ -1018,7 +1018,7 @@ def main():
         <style>
         /* ── page background ── */
         .stApp { background-color: #ffffff; }
-        section[data-testid="stSidebar"] { background-color: #ffffff; }
+        section[data-testid="stSidebar"] { display: none; }
 
         /* ── hide default Streamlit header decoration ── */
         header[data-testid="stHeader"] { background: transparent; }
@@ -1073,21 +1073,6 @@ def main():
             margin-top: 4px;
         }
 
-        /* ── sidebar labels ── */
-        .av-sidebar-logo {
-            font-size: 0.72rem;
-            font-weight: 800;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: #3b82f6;
-            margin-bottom: 2px;
-        }
-        .av-sidebar-sub {
-            font-size: 0.65rem;
-            color: #8899bb;
-            letter-spacing: 0.06em;
-        }
-
         /* ── footer ── */
         .av-footer {
             margin-top: 48px;
@@ -1129,36 +1114,6 @@ def main():
         """,
         unsafe_allow_html=True,
     )
-
-    # ── sidebar ───────────────────────────────────────────────────────────────
-    with st.sidebar:
-        st.markdown(
-            '<div class="av-sidebar-logo">Waymo Validation Lab</div>'
-            '<div class="av-sidebar-sub">AV Scenario Analysis Platform</div>',
-            unsafe_allow_html=True,
-        )
-        st.divider()
-        st.markdown(
-            '<div style="font-size:0.72rem; color:#8899bb; line-height:1.8;">'
-            '250 scenarios &nbsp;·&nbsp; 18 151 tracks<br>'
-            'Source: Waymo Open Dataset<br>'
-            'Decoded via protobuf — zero TF<br>'
-            'Pipeline: TFRecord → Silver → Gold'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.divider()
-        with st.expander("Scoring Parameters"):
-            st.markdown(
-                '<div style="font-size:0.72rem; color:#8899bb; line-height:2;">'
-                'TTC Warning &nbsp;&nbsp;&nbsp; 2.0 s<br>'
-                'TTC Critical &nbsp;&nbsp;&nbsp; 0.8 s<br>'
-                'Interaction radius &nbsp; 5 m'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-        st.divider()
-        st.caption("Extended tooling: `app_debug.py`")
 
     # Fixed scoring parameters for the public app
     ttc_warning          = 3.0
