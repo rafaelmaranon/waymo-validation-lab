@@ -1007,64 +1007,26 @@ def render_explorer_gif_grid(
             "Interaction metrics are derived from actor trajectories contained in the Waymo Open Dataset.  \n"
             "These derived signals summarize relative motion, proximity, and temporal margins between actors."
         )
-        st.markdown(
-            """
-<div style="display:flex; align-items:center; gap:0; flex-wrap:wrap; margin:24px 0 8px 0;">
 
-  <div style="background:#f0f4ff; border:1px solid #c7d4f0; border-radius:8px;
-              padding:14px 18px; min-width:140px; text-align:center;">
-    <div style="font-size:0.72rem; font-weight:700; color:#3b82f6;
-                letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">
-      Waymo Scenario Logs
-    </div>
-    <div style="font-size:0.75rem; color:#5a6e99; line-height:1.6;">
-      Position<br>Velocity<br>Actor State
-    </div>
-  </div>
+        diagrams_dir = PROJECT_ROOT / "data" / "diagrams"
+        img_simple = diagrams_dir / "pipeline_simple.png"
+        img_full   = diagrams_dir / "pipeline_full.png"
 
-  <div style="font-size:1.4rem; color:#c7d4f0; padding:0 10px;">→</div>
+        if "pipeline_expanded" not in st.session_state:
+            st.session_state.pipeline_expanded = False
 
-  <div style="background:#f0f4ff; border:1px solid #c7d4f0; border-radius:8px;
-              padding:14px 18px; min-width:140px; text-align:center;">
-    <div style="font-size:0.72rem; font-weight:700; color:#3b82f6;
-                letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">
-      Interaction Signals
-    </div>
-    <div style="font-size:0.75rem; color:#5a6e99; line-height:1.6;">
-      Relative Position<br>Relative Velocity
-    </div>
-  </div>
-
-  <div style="font-size:1.4rem; color:#c7d4f0; padding:0 10px;">→</div>
-
-  <div style="background:#f0f4ff; border:1px solid #c7d4f0; border-radius:8px;
-              padding:14px 18px; min-width:140px; text-align:center;">
-    <div style="font-size:0.72rem; font-weight:700; color:#3b82f6;
-                letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">
-      Interaction Metrics
-    </div>
-    <div style="font-size:0.75rem; color:#5a6e99; line-height:1.6;">
-      Time-to-Collision<br>Closing Speed<br>Exposure
-    </div>
-  </div>
-
-  <div style="font-size:1.4rem; color:#c7d4f0; padding:0 10px;">→</div>
-
-  <div style="background:#fff0f0; border:1px solid #f0c7c7; border-radius:8px;
-              padding:14px 18px; min-width:140px; text-align:center;">
-    <div style="font-size:0.72rem; font-weight:700; color:#e63946;
-                letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">
-      Interaction Score
-    </div>
-    <div style="font-size:0.75rem; color:#c05060; line-height:1.6;">
-      Composite [0–1]<br>per scenario
-    </div>
-  </div>
-
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
+        if st.session_state.pipeline_expanded:
+            if img_full.exists():
+                st.image(str(img_full), use_container_width=True)
+            if st.button("▲ Collapse pipeline", key="pipeline_collapse"):
+                st.session_state.pipeline_expanded = False
+                st.rerun()
+        else:
+            if img_simple.exists():
+                st.image(str(img_simple), use_container_width=True)
+            if st.button("▼ Expand full pipeline", key="pipeline_expand"):
+                st.session_state.pipeline_expanded = True
+                st.rerun()
 
 
 # ============================================================
