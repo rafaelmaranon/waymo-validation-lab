@@ -128,8 +128,8 @@ def risk_col(df: pd.DataFrame) -> str:
 
 
 def risk_label(df: pd.DataFrame) -> str:
-    if "interaction_percentile" in df.columns:
-        return "Interaction Criticality Percentile"
+    if "risk_score" in df.columns and df["risk_score"].notna().any():
+        return "Interaction Score"
     return "Interaction Risk Proxy (scenario_interest_score)"
 
 
@@ -1232,7 +1232,7 @@ def _mini_hist(ax, values, color):
 
 def _render_metric_cards(merged: pd.DataFrame):
     cards = [
-        {"title": "Interaction Criticality", "col": "interaction_percentile", "color": "#e53935", "label": "Avg Interaction Criticality Percentile", "fmt": "{:.1%}"},
+        {"title": "Interaction Score", "col": "risk_score", "color": "#e53935", "label": "Avg Interaction Score", "fmt": "{:.3f}"},
         {"title": "Complexity", "col": "scenario_interest_score",  "color": "#1e88e5", "label": "Avg Complexity Score",  "fmt": "{:.3f}"},
         {"title": "Comfort",    "col": "comfort_score",            "color": "#43a047", "label": "Avg Comfort Score",     "fmt": "{:.3f}"},
     ]
@@ -1397,37 +1397,38 @@ comfort = (0.25 * accel_component
 
     # ── Risk vs Complexity scatter ─────────────────────────────
     st.divider()
-    st.markdown("#### Interaction Criticality vs. Complexity")
-    st.caption("Interaction criticality is shown as a percentile within this dataset. Higher values indicate tighter or denser actor interactions relative to other scenarios in the sample.")
+    st.markdown("#### Interaction Score vs. Complexity")
+    st.caption("Higher interaction scores indicate tighter time margins, higher closing speeds, or repeated close interactions.")
 
-    plot_df = merged.dropna(subset=["interaction_percentile", "scenario_interest_score"]).copy()
+    plot_df = merged.dropna(subset=["risk_score", "scenario_interest_score"]).copy()
     if not plot_df.empty:
         fig, ax = plt.subplots(figsize=(7, 4))
         fig.patch.set_facecolor("#0e1117")
         ax.set_facecolor("#0e1117")
 
+        percentiles = plot_df["risk_score"].rank(pct=True)
         colors = [
-            "#e53935" if p >= 0.6 else "#fb8c00" if p >= 0.3 else "#43a047"
-            for p in plot_df["interaction_percentile"]
+            "#e53935" if p >= 0.95 else "#fb8c00" if p >= 0.85 else "#43a047"
+            for p in percentiles
         ]
-        sizes = [60 + 120 * p for p in plot_df["interaction_percentile"]]
+        sizes = [60 + 120 * r for r in plot_df["risk_score"]]
 
         ax.scatter(
             plot_df["scenario_interest_score"],
-            plot_df["interaction_percentile"],
+            plot_df["risk_score"],
             c=colors, s=sizes, alpha=0.85, edgecolors="#ffffff22", linewidths=0.5,
         )
 
-        for _, row in plot_df.nlargest(3, "interaction_percentile").iterrows():
+        for _, row in plot_df.nlargest(3, "risk_score").iterrows():
             ax.annotate(
                 row["scenario_id"][:8],
-                (row["scenario_interest_score"], row["interaction_percentile"]),
+                (row["scenario_interest_score"], row["risk_score"]),
                 textcoords="offset points", xytext=(6, 4),
                 fontsize=7, color="#ffffffaa",
             )
 
         ax.set_xlabel("Complexity Score", color="#aaaaaa", fontsize=10)
-        ax.set_ylabel("Interaction Criticality Percentile", color="#aaaaaa", fontsize=10)
+        ax.set_ylabel("Interaction Score", color="#aaaaaa", fontsize=10)
         ax.tick_params(colors="#888888")
         for spine in ax.spines.values():
             spine.set_edgecolor("#333333")
@@ -1439,7 +1440,7 @@ comfort = (0.25 * accel_component
         st.pyplot(fig, use_container_width=True)
         plt.close(fig)
     else:
-        st.info("Not enough data to render Interaction Criticality vs. Complexity chart.")
+        st.info("Not enough data to render Interaction Score vs. Complexity chart.")
 
 
 # ============================================================
