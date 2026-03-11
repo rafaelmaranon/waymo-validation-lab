@@ -1267,42 +1267,43 @@ def render_explorer_gif_grid(
     if st.session_state.get("explorer_selected"):
         st.success(f"✓ **{st.session_state.explorer_selected[:8]}** loaded — switch to the **Review** tab.")
 
-    # ── Simple pipeline diagram (always visible) ───────────────
+    # ── Click-to-expand pipeline diagram ──────────────────────
     st.divider()
     components.html(
         """
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
         <script>mermaid.initialize({startOnLoad:true,theme:'base',
             themeVariables:{fontSize:'13px',fontFamily:'sans-serif'}});</script>
-        <div class="mermaid">
-        flowchart LR
-            A["Waymo Scenario Logs<br/>Position &#8226; Velocity &#8226; Actor State"]
-            B["Interaction Signals<br/>Relative Position &#8226; Relative Velocity"]
-            C["Safety Metrics<br/>TTC &#8226; Closing Speed &#8226; Exposure"]
-            D["Scenario Risk Score"]
-            A --> B
-            B --> C
-            C --> D
-            classDef logs fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
-            classDef interaction fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
-            classDef metrics fill:#fff3e0,stroke:#fb8c00,stroke-width:2px;
-            classDef risk fill:#ffebee,stroke:#e53935,stroke-width:2px;
-            class A logs
-            class B interaction
-            class C metrics
-            class D risk
-        </div>
-        """,
-        height=160,
-    )
+        <style>
+            body { background:#f8f9fb; margin:0; padding:4px 0; }
+            .wrap { cursor:pointer; border-radius:8px; padding:6px 8px; background:#f0f2f6; }
+            .hint { font-size:11px; color:#888; margin:0 0 4px 2px; font-family:sans-serif; user-select:none; }
+        </style>
 
-    # ── Full pipeline (collapsed) ──────────────────────────────
-    with st.expander("🔍 Full pipeline diagram →"):
-        components.html(
-            """
-            <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-            <script>mermaid.initialize({startOnLoad:true,theme:'base',
-                themeVariables:{fontSize:'12px',fontFamily:'sans-serif'}});</script>
+        <div id="simple" class="wrap" onclick="toggle()">
+            <p class="hint">&#9654; Click to expand full pipeline</p>
+            <div class="mermaid">
+            flowchart LR
+                A["Waymo Scenario Logs<br/>Position &#8226; Velocity &#8226; Actor State"]
+                B["Interaction Signals<br/>Relative Position &#8226; Relative Velocity"]
+                C["Safety Metrics<br/>TTC &#8226; Closing Speed &#8226; Exposure"]
+                D["Scenario Risk Score"]
+                A --> B
+                B --> C
+                C --> D
+                classDef logs fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
+                classDef interaction fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
+                classDef metrics fill:#fff3e0,stroke:#fb8c00,stroke-width:2px;
+                classDef risk fill:#ffebee,stroke:#e53935,stroke-width:2px;
+                class A logs
+                class B interaction
+                class C metrics
+                class D risk
+            </div>
+        </div>
+
+        <div id="detail" class="wrap" style="display:none;" onclick="toggle()">
+            <p class="hint">&#9660; Click to collapse</p>
             <div class="mermaid">
             %%{init: {'theme':'base'}}%%
             flowchart LR
@@ -1358,9 +1359,24 @@ def render_explorer_gif_grid(
                 class B1,B2,B3,B4,B5,B6 metrics
                 class C1,C2,C3,C4,C5 outputs
             </div>
-            """,
-            height=500,
-        )
+        </div>
+
+        <script>
+        function toggle() {
+            var s = document.getElementById('simple');
+            var d = document.getElementById('detail');
+            if (s.style.display !== 'none') {
+                s.style.display = 'none';
+                d.style.display = 'block';
+            } else {
+                d.style.display = 'none';
+                s.style.display = 'block';
+            }
+        }
+        </script>
+        """,
+        height=720,
+    )
 
     # ── How Scores Are Calculated (collapsed, 4 nested HTML details) ──
     with st.expander("� How Scores Are Calculated →"):
