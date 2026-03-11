@@ -1228,92 +1228,81 @@ def render_explorer_gif_grid(
     previews_dir = PROJECT_ROOT / "data" / "previews"
 
     st.subheader("Scenario Explorer")
+    st.caption("Top 3 scenarios by risk score. GIFs use real Waymo map geometry. Click **Review →** to investigate.")
 
     available = [sid for sid in review_sorted_ids if (previews_dir / f"{sid}.gif").exists()]
 
     if not available:
-        st.warning(
-            "No preview GIFs found. Generate them first:\n\n"
-            "```\npython scripts/generate_preview_gifs.py\n```"
-        )
+        st.warning("No preview GIFs found.\n\n```\npython scripts/generate_preview_gifs.py\n```")
         return
 
     metrics_by_id = {row["scenario_id"]: row for _, row in merged.iterrows()}
 
-    sub_scenarios, sub_scores = st.tabs(["🎬 Scenarios", "📊 How Scores Work"])
+    # ── GIF grid ──────────────────────────────────────────────
+    cols = st.columns(3)
+    for j, sid in enumerate(available[:3]):
+        mrow       = metrics_by_id.get(sid)
+        risk_score = mrow["risk_score"] if mrow is not None and "risk_score" in mrow.index and not pd.isna(mrow["risk_score"]) else None
+        min_ttc    = mrow["min_ttc_s"]  if mrow is not None and "min_ttc_s"  in mrow.index and not pd.isna(mrow["min_ttc_s"])  else None
+        num_tracks = mrow["num_tracks"] if mrow is not None and "num_tracks" in mrow.index and not pd.isna(mrow["num_tracks"]) else None
 
-    with sub_scenarios:
-        top3 = available[:3]
-        cols = st.columns(3)
-        for j, sid in enumerate(top3):
-            mrow       = metrics_by_id.get(sid)
-            risk_score = mrow["risk_score"] if mrow is not None and "risk_score" in mrow.index and not pd.isna(mrow["risk_score"]) else None
-            min_ttc    = mrow["min_ttc_s"]  if mrow is not None and "min_ttc_s"  in mrow.index and not pd.isna(mrow["min_ttc_s"])  else None
-            num_tracks = mrow["num_tracks"] if mrow is not None and "num_tracks" in mrow.index and not pd.isna(mrow["num_tracks"]) else None
+        r_s = f"{risk_score:.2f}" if risk_score is not None else "—"
+        t_s = f"{min_ttc:.2f}s"   if min_ttc    is not None else "—"
+        trk = str(int(num_tracks)) if num_tracks is not None else "—"
+        gif_b64 = base64.b64encode((previews_dir / f"{sid}.gif").read_bytes()).decode()
 
-            r_s = f"{risk_score:.2f}" if risk_score is not None else "—"
-            t_s = f"{min_ttc:.2f}s"   if min_ttc    is not None else "—"
-            trk = str(int(num_tracks)) if num_tracks is not None else "—"
+        with cols[j]:
+            st.markdown(
+                f'<div style="width:100%;height:270px;overflow:hidden;background:#12121e;border-radius:8px;">'
+                f'<img src="data:image/gif;base64,{gif_b64}" '
+                f'style="width:100%;height:270px;object-fit:cover;border-radius:8px;display:block;"/>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(f"**{sid[:8]}**  \nrisk **{r_s}** · ttc **{t_s}**  \n{trk} actors")
+            if st.button("Review →", key=f"exp_rev_{sid}"):
+                st.session_state.scenario_idx = review_sorted_ids.index(sid) if sid in review_sorted_ids else 0
+                st.session_state.explorer_selected = sid
 
-            gif_b64 = base64.b64encode((previews_dir / f"{sid}.gif").read_bytes()).decode()
+    if st.session_state.get("explorer_selected"):
+        st.success(f"✓ **{st.session_state.explorer_selected[:8]}** loaded — switch to the **Review** tab.")
 
-            with cols[j]:
-                st.markdown(
-                    f'<div style="width:100%;height:270px;overflow:hidden;'
-                    f'background:#12121e;border-radius:8px;">'
-                    f'<img src="data:image/gif;base64,{gif_b64}" '
-                    f'style="width:100%;height:270px;object-fit:cover;border-radius:8px;display:block;"/>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f"**{sid[:8]}**  \n"
-                    f"risk **{r_s}** · ttc **{t_s}**  \n"
-                    f"{trk} actors"
-                )
-                if st.button("Review →", key=f"exp_rev_{sid}"):
-                    st.session_state.scenario_idx = review_sorted_ids.index(sid) if sid in review_sorted_ids else 0
-                    st.session_state.explorer_selected = sid
-
-        if st.session_state.get("explorer_selected"):
-            sel = st.session_state.explorer_selected
-            st.success(f"✓ **{sel[:8]}** loaded — switch to the **Review** tab to investigate.")
-
-        st.divider()
-        components.html(
+    # ── Pipeline diagram ───────────────────────────────────────
+    st.divider()
+    components.html(
         """
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-        <script>mermaid.initialize({ startOnLoad: true, theme: 'base',
-            themeVariables: { fontSize: '13px', fontFamily: 'sans-serif' } });
-        </script>
-        <style>
-            .diagram-wrap { cursor: pointer; }
-            .hint { font-size: 11px; color: #999; margin: 0 0 4px 2px;
-                    font-family: sans-serif; user-select: none; }
-        </style>
-        <div id="simple" class="diagram-wrap" onclick="toggle()">
-            <p class="hint">&#9654; Click to expand full pipeline</p>
-            <div class="mermaid">
-            flowchart LR
-                A["Waymo Scenario Logs<br/>Position &#8226; Velocity &#8226; Actor State"]
-                B["Interaction Signals<br/>Relative Position &#8226; Relative Velocity"]
-                C["Safety Metrics<br/>TTC &#8226; Closing Speed &#8226; Exposure"]
-                D["Scenario Risk Score"]
-                A --> B
-                B --> C
-                C --> D
-                classDef logs fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
-                classDef interaction fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
-                classDef metrics fill:#fff3e0,stroke:#fb8c00,stroke-width:2px;
-                classDef risk fill:#ffebee,stroke:#e53935,stroke-width:2px;
-                class A logs
-                class B interaction
-                class C metrics
-                class D risk
-            </div>
+        <script>mermaid.initialize({startOnLoad:true, theme:'base',
+            themeVariables:{fontSize:'13px',fontFamily:'sans-serif'}});</script>
+        <div class="mermaid">
+        flowchart LR
+            A["Waymo Scenario Logs<br/>Position &#8226; Velocity &#8226; Actor State"]
+            B["Interaction Signals<br/>Relative Position &#8226; Relative Velocity"]
+            C["Safety Metrics<br/>TTC &#8226; Closing Speed &#8226; Exposure"]
+            D["Scenario Risk Score"]
+            A --> B
+            B --> C
+            C --> D
+            classDef logs fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
+            classDef interaction fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
+            classDef metrics fill:#fff3e0,stroke:#fb8c00,stroke-width:2px;
+            classDef risk fill:#ffebee,stroke:#e53935,stroke-width:2px;
+            class A logs
+            class B interaction
+            class C metrics
+            class D risk
         </div>
-        <div id="detail" class="diagram-wrap" style="visibility:hidden;height:0;overflow:hidden;" onclick="toggle()">
-            <p class="hint">&#9660; Click to collapse</p>
+        """,
+        height=160,
+    )
+
+    # ── Full pipeline + score formulas (collapsed by default) ──
+    with st.expander("🔍 Full pipeline diagram"):
+        components.html(
+            """
+            <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+            <script>mermaid.initialize({startOnLoad:true, theme:'base',
+                themeVariables:{fontSize:'12px',fontFamily:'sans-serif'}});</script>
             <div class="mermaid">
             %%{init: {'theme':'base'}}%%
             flowchart LR
@@ -1369,76 +1358,22 @@ def render_explorer_gif_grid(
                 class B1,B2,B3,B4,B5,B6 metrics
                 class C1,C2,C3,C4,C5 outputs
             </div>
-        </div>
-        <script>
-        function toggle() {
-            var s = document.getElementById('simple');
-            var d = document.getElementById('detail');
-            if (s.style.visibility !== 'hidden') {
-                s.style.visibility='hidden'; s.style.height='0'; s.style.overflow='hidden';
-                d.style.visibility='visible'; d.style.height='auto'; d.style.overflow='visible';
-            } else {
-                d.style.visibility='hidden'; d.style.height='0'; d.style.overflow='hidden';
-                s.style.visibility='visible'; s.style.height='auto'; s.style.overflow='visible';
-            }
-        }
-        </script>
-        """,
-        height=520,
+            """,
+            height=500,
         )
 
-    with sub_scores:
-        with st.expander("🔴 Risk Score Logic", expanded=True):
-            st.markdown(
-                "Risk ≈ **Time × Severity × Exposure**\n\n"
-                "| Dimension | Metric |\n|---|---|\n"
-                "| Time margin | `min_ttc_s` |\n"
-                "| Severity | `max_closing_speed_mps` |\n"
-                "| Exposure | `num_ttc_below_3s / below_1_5s` |"
-            )
-            st.code(
-                "risk = 0.5 * ttc_component\n"
-                "     + 0.3 * closing_component\n"
-                "     + 0.2 * breach_component\n\n"
-                "closing = min(1.0, closing_speed / 15.0)\n"
-                "breach  = min(1.0, (below_3s + 2*below_1.5s) / 20.0)",
-                language="python",
-            )
-        with st.expander("🔵 Complexity Score Logic"):
-            st.code(
-                "complexity = (\n"
-                "  0.30 * min(1.0, 10.0 / (min_dist + 0.1))   # proximity\n"
-                "+ 0.25 * min(1.0, close_interactions / 50.0)  # density\n"
-                "+ 0.20 * min(1.0, sdc_max_speed / 25.0)       # speed\n"
-                "+ 0.15 * min(1.0, unique_actors / 10.0)        # diversity\n"
-                "+ 0.10 * min(1.0, sdc_distance / 200.0)        # coverage\n"
-                ")",
-                language="python",
-            )
-        with st.expander("🟢 Comfort Score Logic"):
-            st.code(
-                "comfort = (0.25 * accel_component\n"
-                "         + 0.30 * decel_component\n"
-                "         + 0.30 * jerk_component\n"
-                "         + 0.15 * heading_component)\n\n"
-                "# thresholds: accel/decel > 4 m/s², jerk > 10 m/s³\n"
-                "# heading_rate > 0.8 rad/s  |  dt = 0.1 s (10 Hz)",
-                language="python",
-            )
-        with st.expander("📖 Metric Glossary"):
-            st.markdown(
-                "| Metric | Definition |\n|---|---|\n"
-                "| `min_ttc_s` | Min Time-to-Collision across all actor/timestep pairs |\n"
-                "| `max_closing_speed_mps` | Max closing speed while approaching |\n"
-                "| `num_ttc_below_3s` | Actor/timestep pairs where TTC < 3 s |\n"
-                "| `num_ttc_below_1_5s` | Actor/timestep pairs where TTC < 1.5 s |\n"
-                "| `min_sdc_distance_m` | Closest any actor got to the SDC |\n"
-                "| `sdc_max_speed_mps` | SDC peak speed in scenario |\n"
-                "| `num_tracks` | Total actor tracks in scenario |\n"
-                "| `risk_score` | Composite safety risk [0–1] |\n"
-                "| `comfort_score` | Ride abruptness [0–1] |\n"
-                "| `scenario_interest_score` | Interaction complexity [0–1] |"
-            )
+    with st.expander("🔴 Risk Score Logic"):
+        st.markdown("Risk ≈ **Time × Severity × Exposure**\n\n| Dimension | Metric |\n|---|---|\n| Time margin | `min_ttc_s` |\n| Severity | `max_closing_speed_mps` |\n| Exposure | `num_ttc_below_3s / below_1_5s` |")
+        st.code("risk = 0.5 * ttc_component\n     + 0.3 * closing_component\n     + 0.2 * breach_component\n\nclosing = min(1.0, closing_speed / 15.0)\nbreach  = min(1.0, (below_3s + 2*below_1.5s) / 20.0)", language="python")
+
+    with st.expander("🔵 Complexity Score Logic"):
+        st.code("complexity = (\n  0.30 * min(1.0, 10.0 / (min_dist + 0.1))   # proximity\n+ 0.25 * min(1.0, close_interactions / 50.0)  # density\n+ 0.20 * min(1.0, sdc_max_speed / 25.0)       # speed\n+ 0.15 * min(1.0, unique_actors / 10.0)        # diversity\n+ 0.10 * min(1.0, sdc_distance / 200.0)        # coverage\n)", language="python")
+
+    with st.expander("🟢 Comfort Score Logic"):
+        st.code("comfort = (0.25 * accel_component\n         + 0.30 * decel_component\n         + 0.30 * jerk_component\n         + 0.15 * heading_component)\n# thresholds: accel/decel > 4 m/s²  |  jerk > 10 m/s³  |  heading_rate > 0.8 rad/s", language="python")
+
+    with st.expander("📖 Metric Glossary"):
+        st.markdown("| Metric | Definition |\n|---|---|\n| `min_ttc_s` | Min Time-to-Collision across all actor/timestep pairs |\n| `max_closing_speed_mps` | Max closing speed while approaching |\n| `num_ttc_below_3s` | Actor/timestep pairs where TTC < 3 s |\n| `num_ttc_below_1_5s` | Actor/timestep pairs where TTC < 1.5 s |\n| `min_sdc_distance_m` | Closest any actor got to the SDC |\n| `sdc_max_speed_mps` | SDC peak speed in scenario |\n| `num_tracks` | Total actor tracks in scenario |\n| `risk_score` | Composite safety risk [0–1] |\n| `comfort_score` | Ride abruptness [0–1] |\n| `scenario_interest_score` | Interaction complexity [0–1] |")
 
 
 # ============================================================
