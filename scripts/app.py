@@ -10,6 +10,7 @@ Run with: streamlit run scripts/app.py
 
 import io
 import time
+import base64
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -1216,6 +1217,81 @@ def render_mini_playback_prototype(
 
 
 # ============================================================
+# SECTION — EXPLORER GIF GRID
+# ============================================================
+
+def render_explorer_gif_grid(
+    merged: pd.DataFrame,
+    review_sorted_ids: list,
+):
+    previews_dir = PROJECT_ROOT / "data" / "previews"
+
+    st.subheader("Scenario Explorer")
+    st.caption(
+        "Top scenarios sorted by risk score. "
+        "GIFs use real Waymo map geometry and actor trajectories. "
+        "Click **Review →** to investigate a scenario in detail."
+    )
+
+    available = [sid for sid in review_sorted_ids if (previews_dir / f"{sid}.gif").exists()]
+
+    if not available:
+        st.warning(
+            "No preview GIFs found. Generate them first:\n\n"
+            "```\npython scripts/generate_preview_gifs.py\n```"
+        )
+        return
+
+    metrics_by_id = {row["scenario_id"]: row for _, row in merged.iterrows()}
+
+    NCOLS = 3
+    for row_start in range(0, len(available), NCOLS):
+        row_ids = available[row_start : row_start + NCOLS]
+        cols = st.columns(NCOLS)
+        for col, sid in zip(cols, row_ids):
+            gif_path = previews_dir / f"{sid}.gif"
+            mrow = metrics_by_id.get(sid)
+
+            def _val(key):
+                if mrow is None or key not in mrow.index:
+                    return None
+                v = mrow[key]
+                return None if pd.isna(v) else v
+
+            risk_score = _val("risk_score")
+            min_ttc    = _val("min_ttc_s")
+            num_tracks = _val("num_tracks")
+
+            r_s  = f"{risk_score:.3f}"  if risk_score is not None else "—"
+            t_s  = f"{min_ttc:.2f}s"   if min_ttc    is not None else "—"
+            trk  = str(int(num_tracks)) if num_tracks is not None else "—"
+
+            with col:
+                gif_b64 = base64.b64encode(gif_path.read_bytes()).decode()
+                st.markdown(
+                    f'<img src="data:image/gif;base64,{gif_b64}" '
+                    f'style="width:100%;border-radius:6px;display:block;"/>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f"<div style='font-family:monospace;font-size:10px;color:#888;"
+                    f"margin:3px 0 4px 0;line-height:1.5;'>"
+                    f"<span style='color:#ccc'>{sid[:14]}</span><br>"
+                    f"risk&nbsp;<b style='color:#e63946'>{r_s}</b>"
+                    f"&nbsp;·&nbsp;ttc&nbsp;<b style='color:#f4a261'>{t_s}</b>"
+                    f"&nbsp;·&nbsp;<b style='color:#4a9eca'>{trk}</b>&nbsp;trk"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                if st.button("Review →", key=f"exp_rev_{sid}"):
+                    idx = review_sorted_ids.index(sid) if sid in review_sorted_ids else 0
+                    st.session_state.scenario_idx = idx
+                    st.rerun()
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -1226,131 +1302,143 @@ def main():
         layout="wide",
     )
 
-    st.title("🚗 Waymo Validation Lab — Scenario Dashboard")
+    st.title("🚗 Waymo Validation Lab")
 
-    # ---- assumption controls ----
+    # ── sidebar: assumption controls ─────────────────────────────────────────
     with st.sidebar:
         st.header("⚙️ Assumption Controls")
-        
-        # Preset selector
+
         preset = st.radio(
             "Select Preset",
             ["Conservative", "Balanced", "Strict"],
-            index=1,  # Default to Balanced
-            help="Choose preset values for risk and complexity thresholds"
+            index=1,
+            help="Choose preset values for risk and complexity thresholds",
         )
-        
-        # Preset values
         preset_values = {
             "Conservative": {"ttc_warning": 4.0, "ttc_critical": 2.0, "interaction_distance": 7},
-            "Balanced": {"ttc_warning": 3.0, "ttc_critical": 1.5, "interaction_distance": 5},
-            "Strict": {"ttc_warning": 2.0, "ttc_critical": 1.0, "interaction_distance": 3}
+            "Balanced":     {"ttc_warning": 3.0, "ttc_critical": 1.5, "interaction_distance": 5},
+            "Strict":       {"ttc_warning": 2.0, "ttc_critical": 1.0, "interaction_distance": 3},
         }
-        
         current_preset = preset_values[preset]
-        
-        # Sliders with preset defaults
+
         ttc_warning = st.slider(
-            "TTC Warning Threshold (seconds)",
-            min_value=1.0,
-            max_value=5.0,
-            value=current_preset["ttc_warning"],
-            step=0.1,
-            help="Time-to-Collision threshold for warning level"
+            "TTC Warning (s)", min_value=1.0, max_value=5.0,
+            value=current_preset["ttc_warning"], step=0.1,
         )
-        
         ttc_critical = st.slider(
-            "TTC Critical Threshold (seconds)",
-            min_value=0.5,
-            max_value=3.0,
-            value=current_preset["ttc_critical"],
-            step=0.1,
-            help="Time-to-Collision threshold for critical level"
+            "TTC Critical (s)", min_value=0.5, max_value=3.0,
+            value=current_preset["ttc_critical"], step=0.1,
         )
-        
         interaction_distance = st.slider(
-            "Close Interaction Distance (meters)",
-            min_value=2,
-            max_value=10,
-            value=current_preset["interaction_distance"],
-            step=1,
-            help="Distance threshold for defining close interactions"
+            "Interaction Distance (m)", min_value=2, max_value=10,
+            value=current_preset["interaction_distance"], step=1,
         )
 
-    # ---- load data ----
+    # ── load data ─────────────────────────────────────────────────────────────
     scenarios = load_parquet_if_exists(SILVER_DIR / "scenarios.parquet")
     if scenarios is None:
         st.error(
-            "❌ Required file missing: `data/silver/scenarios.parquet`. "
-            "Run the parser first: `python scripts/waymo_real_parser.py`"
+            "❌ `data/silver/scenarios.parquet` missing. "
+            "Run: `python scripts/waymo_real_parser.py`"
         )
         return
 
-    scenario_metrics = load_parquet_if_exists(GOLD_DIR / "scenario_metrics.parquet")
+    scenario_metrics    = load_parquet_if_exists(GOLD_DIR / "scenario_metrics.parquet")
     interaction_metrics = load_parquet_if_exists(GOLD_DIR / "interaction_metrics.parquet")
-    risk_metrics = load_parquet_if_exists(GOLD_DIR / "risk_metrics.parquet")
-    comfort_metrics = load_parquet_if_exists(GOLD_DIR / "comfort_metrics.parquet")
+    risk_metrics        = load_parquet_if_exists(GOLD_DIR / "risk_metrics.parquet")
+    comfort_metrics     = load_parquet_if_exists(GOLD_DIR / "comfort_metrics.parquet")
 
     if interaction_metrics is None:
         st.error(
-            "❌ Required file missing: `data/gold/interaction_metrics.parquet`. "
+            "❌ `data/gold/interaction_metrics.parquet` missing. "
             "Run: `python scripts/compute_interaction_metrics.py`"
         )
         return
 
     loaded_files = {
-        "scenario_metrics.parquet": scenario_metrics is not None,
+        "scenario_metrics.parquet":    scenario_metrics    is not None,
         "interaction_metrics.parquet": interaction_metrics is not None,
-        "risk_metrics.parquet": risk_metrics is not None,
-        "comfort_metrics.parquet": comfort_metrics is not None,
+        "risk_metrics.parquet":        risk_metrics        is not None,
+        "comfort_metrics.parquet":     comfort_metrics     is not None,
     }
 
-    merged = build_merged_table(scenarios, scenario_metrics, interaction_metrics, risk_metrics, comfort_metrics)
+    merged = build_merged_table(
+        scenarios, scenario_metrics, interaction_metrics, risk_metrics, comfort_metrics
+    )
 
-    # ---- silver tables for playback (cached) ----
     states_df, tracks_df = load_silver_for_playback(
         str(SILVER_DIR / "states.parquet"),
         str(SILVER_DIR / "tracks.parquet"),
     )
 
-    # ---- shared scenario selector (controls Sections 9 & 10) ----
+    # ── scenario ordering (highest risk first) ────────────────────────────────
     if risk_metrics is not None and "risk_score" in risk_metrics.columns:
-        review_sorted_ids = risk_metrics.sort_values("risk_score", ascending=False)["scenario_id"].tolist()
+        review_sorted_ids = (
+            risk_metrics.sort_values("risk_score", ascending=False)["scenario_id"].tolist()
+        )
     else:
         review_sorted_ids = scenarios["scenario_id"].tolist()
 
+    # ── session state: shared selected scenario ───────────────────────────────
+    if "scenario_idx" not in st.session_state:
+        st.session_state.scenario_idx = 0
+
+    # ── sidebar: scenario selector (synced with Explorer buttons) ─────────────
     with st.sidebar:
         st.divider()
         st.markdown("**🔬 Scenario Analysis**")
+        safe_idx = min(st.session_state.scenario_idx, len(review_sorted_ids) - 1)
         selected_scenario = st.selectbox(
             "Select Scenario",
             review_sorted_ids,
-            index=0,
-            help="Controls Section 9 (Scenario Review) and Section 10 (Playback)",
+            index=safe_idx,
+            help="Updated by Explorer 'Review →' buttons or changed here directly.",
         )
+        # Sync session state when user manually changes the sidebar selectbox
+        new_idx = (
+            review_sorted_ids.index(selected_scenario)
+            if selected_scenario in review_sorted_ids else 0
+        )
+        if new_idx != st.session_state.scenario_idx:
+            st.session_state.scenario_idx = new_idx
 
-    # ---- render sections ----
-    render_dataset_summary(scenarios, loaded_files, ttc_warning, ttc_critical, interaction_distance)
-    st.divider()
-    render_top_scenarios_table(merged)
-    st.divider()
-    render_risk_overview(merged, ttc_warning, ttc_critical)
-    st.divider()
-    render_complexity_overview(merged, interaction_distance)
-    st.divider()
-    render_risk_vs_complexity(merged)
-    st.divider()
-    render_comfort_panel(comfort_metrics)
-    st.divider()
-    render_interpretation_notes()
-    st.divider()
-    render_score_calculation_logic()
-    st.divider()
-    render_scenario_review(merged, risk_metrics, comfort_metrics, ttc_warning, ttc_critical, interaction_distance, selected_scenario)
-    st.divider()
-    render_scenario_playback(selected_scenario, states_df, tracks_df)
-    st.divider()
-    render_mini_playback_prototype(merged, states_df, tracks_df, selected_scenario)
+    # ── 3 top-level tabs ──────────────────────────────────────────────────────
+    explorer_tab, review_tab, metrics_tab = st.tabs(
+        ["🗺️  Explorer", "🔍  Review", "📊  Metrics"]
+    )
+
+    with explorer_tab:
+        render_explorer_gif_grid(merged, review_sorted_ids)
+
+    with review_tab:
+        render_scenario_review(
+            merged, risk_metrics, comfort_metrics,
+            ttc_warning, ttc_critical, interaction_distance,
+            selected_scenario,
+        )
+        st.divider()
+        render_scenario_playback(selected_scenario, states_df, tracks_df)
+        st.divider()
+        render_mini_playback_prototype(merged, states_df, tracks_df, selected_scenario)
+
+    with metrics_tab:
+        render_dataset_summary(
+            scenarios, loaded_files, ttc_warning, ttc_critical, interaction_distance
+        )
+        st.divider()
+        render_top_scenarios_table(merged)
+        st.divider()
+        render_risk_overview(merged, ttc_warning, ttc_critical)
+        st.divider()
+        render_complexity_overview(merged, interaction_distance)
+        st.divider()
+        render_risk_vs_complexity(merged)
+        st.divider()
+        render_comfort_panel(comfort_metrics)
+        st.divider()
+        render_interpretation_notes()
+        st.divider()
+        render_score_calculation_logic()
 
 
 if __name__ == "__main__":
