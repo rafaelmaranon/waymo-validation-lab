@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Waymo Validation Lab — Public / Portfolio Version
+Waymo Validation Lab — Debug / Extended Version
 
-Scenario safety scoring dashboard built on real Waymo Open Dataset logs.
-Showcases risk, complexity, and comfort metrics across 10 real AV scenarios.
+Full internal dashboard: assumption controls, scenario review, playback,
+mini playback, metrics, formulas, and all advanced tooling.
 
-Run with: streamlit run scripts/app.py
+Run with: streamlit run scripts/app_debug.py
 """
 
 import io
@@ -1416,36 +1416,38 @@ def main():
     )
 
     st.title("🚗 Waymo Validation Lab")
-    st.caption(
-        "Safety scoring dashboard built on real "
-        "[Waymo Open Dataset](https://waymo.com/open/) logs. "
-        "Risk, complexity, and comfort metrics across 10 AV scenarios."
-    )
 
-    # ── sidebar: project info ──────────────────────────────────────────────────
+    # ── sidebar: assumption controls ─────────────────────────────────────────
     with st.sidebar:
-        st.markdown("### About")
-        st.markdown(
-            "Real AV scenario logs decoded from Waymo protobuf format.  \n"
-            "Zero TensorFlow, zero synthetic data.  \n\n"
-            "**Pipeline:** Raw TFRecord → Silver parquet → Gold metrics → Dashboard"
-        )
-        st.divider()
-        st.markdown("**Scoring defaults (Balanced preset)**")
-        st.markdown(
-            "- TTC Warning: 3.0 s  \n"
-            "- TTC Critical: 1.5 s  \n"
-            "- Interaction radius: 5 m"
-        )
-        st.divider()
-        st.caption("🔧 Extended tooling available in `app_debug.py`")
+        st.header("⚙️ Assumption Controls")
 
-    # Fixed scoring parameters for the public app
-    ttc_warning          = 3.0
-    ttc_critical         = 1.5
-    interaction_distance = 5
+        preset = st.radio(
+            "Select Preset",
+            ["Conservative", "Balanced", "Strict"],
+            index=1,
+            help="Choose preset values for risk and complexity thresholds",
+        )
+        preset_values = {
+            "Conservative": {"ttc_warning": 4.0, "ttc_critical": 2.0, "interaction_distance": 7},
+            "Balanced":     {"ttc_warning": 3.0, "ttc_critical": 1.5, "interaction_distance": 5},
+            "Strict":       {"ttc_warning": 2.0, "ttc_critical": 1.0, "interaction_distance": 3},
+        }
+        current_preset = preset_values[preset]
 
-    # ── load data ──────────────────────────────────────────────────────────────────────────
+        ttc_warning = st.slider(
+            "TTC Warning (s)", min_value=1.0, max_value=5.0,
+            value=current_preset["ttc_warning"], step=0.1,
+        )
+        ttc_critical = st.slider(
+            "TTC Critical (s)", min_value=0.5, max_value=3.0,
+            value=current_preset["ttc_critical"], step=0.1,
+        )
+        interaction_distance = st.slider(
+            "Interaction Distance (m)", min_value=2, max_value=10,
+            value=current_preset["interaction_distance"], step=1,
+        )
+
+    # ── load data ─────────────────────────────────────────────────────────────
     scenarios = load_parquet_if_exists(SILVER_DIR / "scenarios.parquet")
     if scenarios is None:
         st.error(
@@ -1490,15 +1492,49 @@ def main():
     else:
         review_sorted_ids = scenarios["scenario_id"].tolist()
 
-    # ── 2 top-level tabs ───────────────────────────────────────────────────────────────────
-    explorer_tab, insights_tab = st.tabs(
-        ["🗺️  Explorer", "  Insights"]
+    # ── session state: shared selected scenario ───────────────────────────────
+    if "scenario_idx" not in st.session_state:
+        st.session_state.scenario_idx = 0
+
+    # ── sidebar: scenario selector (synced with Explorer buttons) ─────────────
+    with st.sidebar:
+        st.divider()
+        st.markdown("**🔬 Scenario Analysis**")
+        safe_idx = min(st.session_state.scenario_idx, len(review_sorted_ids) - 1)
+        selected_scenario = st.selectbox(
+            "Select Scenario",
+            review_sorted_ids,
+            index=safe_idx,
+            help="Updated by Explorer 'Review →' buttons or changed here directly.",
+        )
+        # Sync session state when user manually changes the sidebar selectbox
+        new_idx = (
+            review_sorted_ids.index(selected_scenario)
+            if selected_scenario in review_sorted_ids else 0
+        )
+        if new_idx != st.session_state.scenario_idx:
+            st.session_state.scenario_idx = new_idx
+
+    # ── 3 top-level tabs ──────────────────────────────────────────────────────
+    explorer_tab, review_tab, metrics_tab = st.tabs(
+        ["🗺️  Explorer", "🔍  Review", "📊  Metrics"]
     )
 
     with explorer_tab:
         render_explorer_gif_grid(merged, review_sorted_ids)
 
-    with insights_tab:
+    with review_tab:
+        render_scenario_review(
+            merged, risk_metrics, comfort_metrics,
+            ttc_warning, ttc_critical, interaction_distance,
+            selected_scenario,
+        )
+        st.divider()
+        render_scenario_playback(selected_scenario, states_df, tracks_df)
+        st.divider()
+        render_mini_playback_prototype(merged, states_df, tracks_df, selected_scenario)
+
+    with metrics_tab:
         render_dataset_summary(
             scenarios, loaded_files, ttc_warning, ttc_critical, interaction_distance
         )
@@ -1512,6 +1548,10 @@ def main():
         render_risk_vs_complexity(merged)
         st.divider()
         render_comfort_panel(comfort_metrics)
+        st.divider()
+        render_interpretation_notes()
+        st.divider()
+        render_score_calculation_logic()
 
 
 if __name__ == "__main__":
