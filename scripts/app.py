@@ -129,8 +129,8 @@ def risk_col(df: pd.DataFrame) -> str:
 
 def risk_label(df: pd.DataFrame) -> str:
     if has_risk_score(df):
-        return "Risk Score"
-    return "Risk Proxy (scenario_interest_score)"
+        return "Interaction Risk Score"
+    return "Interaction Risk Proxy (scenario_interest_score)"
 
 
 # ============================================================
@@ -219,7 +219,7 @@ def render_top_scenarios_table(merged: pd.DataFrame):
 # ============================================================
 
 def render_risk_overview(merged: pd.DataFrame, ttc_warning: float, ttc_critical: float):
-    st.header("3 — Risk Overview")
+    st.header("3 — Interaction Risk Overview")
 
     col = risk_col(merged)
     label = risk_label(merged)
@@ -381,7 +381,7 @@ def render_risk_vs_complexity(merged: pd.DataFrame):
 
     ax.set_xlabel(risk_label(merged))
     ax.set_ylabel("Close Interactions (< 5 m)")
-    ax.set_title("Risk vs Complexity")
+    ax.set_title("Interaction Risk vs Complexity")
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
     st.pyplot(fig)
@@ -1232,7 +1232,7 @@ def _mini_hist(ax, values, color):
 
 def _render_metric_cards(merged: pd.DataFrame):
     cards = [
-        {"title": "Risk",       "col": "risk_score",               "color": "#e53935", "label": "Avg Risk Score",       "fmt": "{:.3f}"},
+        {"title": "Interaction Risk", "col": "risk_score",              "color": "#e53935", "label": "Avg Interaction Risk Score", "fmt": "{:.3f}"},
         {"title": "Complexity", "col": "scenario_interest_score",  "color": "#1e88e5", "label": "Avg Complexity Score",  "fmt": "{:.3f}"},
         {"title": "Comfort",    "col": "comfort_score",            "color": "#43a047", "label": "Avg Comfort Score",     "fmt": "{:.3f}"},
     ]
@@ -1267,7 +1267,7 @@ def render_explorer_gif_grid(
     previews_dir = PROJECT_ROOT / "data" / "previews"
 
     st.subheader("Scenario Explorer")
-    st.caption("Top 3 scenarios by risk score. GIFs use real Waymo map geometry. Click **Review →** to investigate.")
+    st.caption("Top 3 scenarios by interaction risk score. GIFs use real Waymo map geometry. Click **Review →** to investigate.")
 
     available = [sid for sid in review_sorted_ids if (previews_dir / f"{sid}.gif").exists()]
 
@@ -1403,8 +1403,8 @@ comfort = (0.25 * accel_component
 
     # ── Risk vs Complexity scatter ─────────────────────────────
     st.divider()
-    st.markdown("#### Risk vs. Complexity")
-    st.caption("Each point is a scenario. High-risk + high-complexity scenarios (top-right) are the most critical to review.")
+    st.markdown("#### Interaction Risk vs. Complexity")
+    st.caption("Each point is a scenario. High interaction-risk + high-complexity scenarios (top-right) are the most critical to review.")
 
     plot_df = merged.dropna(subset=["risk_score", "scenario_interest_score"]).copy()
     if not plot_df.empty:
@@ -1433,7 +1433,7 @@ comfort = (0.25 * accel_component
             )
 
         ax.set_xlabel("Complexity Score", color="#aaaaaa", fontsize=10)
-        ax.set_ylabel("Risk Score", color="#aaaaaa", fontsize=10)
+        ax.set_ylabel("Interaction Risk Score", color="#aaaaaa", fontsize=10)
         ax.tick_params(colors="#888888")
         for spine in ax.spines.values():
             spine.set_edgecolor("#333333")
@@ -1445,7 +1445,7 @@ comfort = (0.25 * accel_component
         st.pyplot(fig, use_container_width=True)
         plt.close(fig)
     else:
-        st.info("Not enough data to render Risk vs. Complexity chart.")
+        st.info("Not enough data to render Interaction Risk vs. Complexity chart.")
 
 
 # ============================================================

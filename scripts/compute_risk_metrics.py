@@ -160,21 +160,28 @@ def compute_scenario_risk(scenario_id: str, states_df: pd.DataFrame, tracks_df: 
         closest_risk_actor_type = None
         min_risk_distance = None
     
-    # Compute risk score components
+    # Compute risk score components (recalibrated — balanced preset defaults)
+    ttc_warning  = 3.0
+    ttc_critical = 1.5
     if min_ttc is not None:
-        ttc_component = min(1.0, 5.0 / max(min_ttc, 0.1))
+        if ttc_warning <= ttc_critical:
+            ttc_component = 0.0
+        else:
+            ttc_component = max(0.0, min(1.0,
+                (ttc_warning - min_ttc) / (ttc_warning - ttc_critical)
+            ))
     else:
         ttc_component = 0.0
-    
-    closing_component = min(1.0, max_closing_speed / 15.0)
-    breach_component = min(1.0, (num_ttc_below_3s + 2 * num_ttc_below_1_5s) / 20.0)
-    
-    # Composite risk score
+
+    closing_component = min(1.0, max_closing_speed / 35.0)
+    breach_component  = min(1.0, (num_ttc_below_3s + 2 * num_ttc_below_1_5s) / 80.0)
+
+    # Composite risk score with power transform to spread distribution
     risk_score = (
-        0.5 * ttc_component +
-        0.3 * closing_component +
-        0.2 * breach_component
-    )
+        0.55 * ttc_component +
+        0.25 * closing_component +
+        0.20 * breach_component
+    ) ** 1.35
     
     # Store components for debugging
     components = {
