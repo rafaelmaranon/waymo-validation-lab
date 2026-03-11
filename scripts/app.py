@@ -1260,30 +1260,28 @@ def render_explorer_gif_grid(
 
     metrics_by_id = {row["scenario_id"]: row for _, row in merged.iterrows()}
 
-    NCOLS = 3
-    for row_start in range(0, len(available), NCOLS):
-        row_ids = available[row_start : row_start + NCOLS]
-        cols = st.columns(NCOLS)
-        for j, sid in enumerate(row_ids):
-            mrow       = metrics_by_id.get(sid)
-            risk_score = mrow["risk_score"] if mrow is not None and "risk_score" in mrow.index and not pd.isna(mrow["risk_score"]) else None
-            min_ttc    = mrow["min_ttc_s"]  if mrow is not None and "min_ttc_s"  in mrow.index and not pd.isna(mrow["min_ttc_s"])  else None
-            num_tracks = mrow["num_tracks"] if mrow is not None and "num_tracks" in mrow.index and not pd.isna(mrow["num_tracks"]) else None
+    top3 = available[:3]
+    cols = st.columns(3)
+    for j, sid in enumerate(top3):
+        mrow       = metrics_by_id.get(sid)
+        risk_score = mrow["risk_score"] if mrow is not None and "risk_score" in mrow.index and not pd.isna(mrow["risk_score"]) else None
+        min_ttc    = mrow["min_ttc_s"]  if mrow is not None and "min_ttc_s"  in mrow.index and not pd.isna(mrow["min_ttc_s"])  else None
+        num_tracks = mrow["num_tracks"] if mrow is not None and "num_tracks" in mrow.index and not pd.isna(mrow["num_tracks"]) else None
 
-            r_s  = f"{risk_score:.2f}" if risk_score is not None else "—"
-            t_s  = f"{min_ttc:.2f}s"   if min_ttc    is not None else "—"
-            trk  = str(int(num_tracks)) if num_tracks is not None else "—"
+        r_s = f"{risk_score:.2f}" if risk_score is not None else "—"
+        t_s = f"{min_ttc:.2f}s"   if min_ttc    is not None else "—"
+        trk = str(int(num_tracks)) if num_tracks is not None else "—"
 
-            with cols[j]:
-                st.image((previews_dir / f"{sid}.gif").read_bytes(), use_container_width=True)
-                st.markdown(
-                    f"**{sid[:8]}**  \n"
-                    f"risk **{r_s}** · ttc **{t_s}**  \n"
-                    f"{trk} actors"
-                )
-                if st.button("Review →", key=f"exp_rev_{sid}"):
-                    st.session_state.scenario_idx = review_sorted_ids.index(sid) if sid in review_sorted_ids else 0
-                    st.rerun()
+        with cols[j]:
+            st.image((previews_dir / f"{sid}.gif").read_bytes(), use_container_width=True)
+            st.markdown(
+                f"**{sid[:8]}**  \n"
+                f"risk **{r_s}** · ttc **{t_s}**  \n"
+                f"{trk} actors"
+            )
+            if st.button("Review →", key=f"exp_rev_{sid}"):
+                st.session_state.scenario_idx = review_sorted_ids.index(sid) if sid in review_sorted_ids else 0
+                st.rerun()
 
 
 # ============================================================
