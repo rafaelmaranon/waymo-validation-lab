@@ -1299,12 +1299,6 @@ def render_explorer_gif_grid(
                 unsafe_allow_html=True,
             )
             st.markdown(f"**{sid[:8]}**  \nrisk **{r_s}** · ttc **{t_s}**  \n{trk} actors")
-            if st.button("Review →", key=f"exp_rev_{sid}"):
-                st.session_state.scenario_idx = review_sorted_ids.index(sid) if sid in review_sorted_ids else 0
-                st.session_state.explorer_selected = sid
-
-    if st.session_state.get("explorer_selected"):
-        st.success(f"✓ **{st.session_state.explorer_selected[:8]}** loaded — switch to the **Review** tab.")
 
     # ── Metric summary cards ───────────────────────────────────
     st.divider()
