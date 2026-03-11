@@ -371,6 +371,88 @@ and edge cases from the scenario set.
 
 
 # ============================================================
+# SECTION 8 — HOW SCORES ARE CALCULATED
+# ============================================================
+
+def render_score_calculation_logic():
+    st.header("8 — How Scores Are Calculated")
+    
+    # Risk Score Logic
+    with st.expander("🔴 Risk Score Logic"):
+        st.markdown("""
+**Plain English:** Risk measures how concerning a scenario appears based on Time-to-Collision (TTC), 
+closing speed, and the number of dangerous close encounters. Lower TTC and higher closing speeds 
+indicate higher collision risk.
+        """)
+        
+        st.code("""
+risk_score = 0.5 * ttc_component + 0.3 * closing_component + 0.2 * breach_component
+
+ttc_component = min(1.0, 5.0 / max(min_ttc_s, 0.1))
+closing_component = min(1.0, max_closing_speed_mps / 15.0)
+breach_component = min(1.0, (num_ttc_below_3s + 2 * num_ttc_below_1_5s) / 20.0)
+        """, language="python")
+        
+        st.markdown("""
+**Main Assumptions:**
+- TTC calculated when objects are approaching (positive closing speed)
+- TTC < 3 seconds is concerning, TTC < 1.5 seconds is critical
+- Closing speeds > 15 m/s (34 mph) are high risk
+- More TTC breaches indicate higher cumulative risk
+- Components normalized to [0, 1] range
+        """)
+    
+    # Complexity Score Logic
+    with st.expander("🔵 Complexity Score Logic"):
+        st.markdown("""
+**Plain English:** Complexity measures how many interactions and nearby actors exist in a scenario. 
+More close interactions and more actors generally indicate a more complex driving environment.
+        """)
+        
+        st.code("""
+# Current proxy: scenario_interest_score from interaction_metrics
+scenario_interest_score = (
+    0.30 * min(1.0, 10.0 / (min_sdc_distance_m + 0.1))
+  + 0.25 * min(1.0, num_close_interactions / 50.0)
+  + 0.20 * min(1.0, sdc_max_speed_mps / 25.0)
+  + 0.15 * min(1.0, num_unique_close_actors / 10.0)
+  + 0.10 * min(1.0, sdc_distance_traveled_m / 200.0)
+)
+        """, language="python")
+        
+        st.markdown("""
+**Main Assumptions:**
+- Close interactions defined as actors within 5 meters of SDC
+- More close interactions = higher complexity
+- More unique actors nearby = higher complexity
+- Higher SDC speeds increase perceived complexity
+- Components normalized to [0, 1] range
+- Currently uses interaction_score as proxy for complexity
+        """)
+    
+    # Comfort Score Logic
+    with st.expander("🟢 Comfort Score Logic"):
+        st.markdown("""
+**Plain English:** Comfort measures ride quality through acceleration, jerk, and smoothness. 
+Higher acceleration and jerk indicate less comfortable driving experiences.
+        """)
+        
+        st.code("""
+# Not yet implemented - placeholder logic
+comfort_score = 0.0  # Will be computed from SDC acceleration/jerk metrics
+        """, language="python")
+        
+        st.markdown("""
+**Main Assumptions:**
+- Comfort metrics not yet available
+- Will use SDC acceleration and jerk when implemented
+- Lower acceleration/jerk = higher comfort scores
+- Comfort scores will be normalized to [0, 1] range
+- Future implementation will analyze longitudinal and lateral comfort separately
+        """)
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -427,6 +509,8 @@ def main():
     render_comfort_panel(comfort_metrics)
     st.divider()
     render_interpretation_notes()
+    st.divider()
+    render_score_calculation_logic()
 
 
 if __name__ == "__main__":

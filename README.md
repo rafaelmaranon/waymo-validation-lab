@@ -193,6 +193,69 @@ CREATE TABLE `project.dataset.scenarios` (...);
 CREATE TABLE `project.dataset.tracks` (...);
 CREATE TABLE `project.dataset.states` (...);
 CREATE TABLE `project.dataset.scenario_metrics` (...);
+CREATE TABLE `project.dataset.interaction_metrics` (...);
+CREATE TABLE `project.dataset.risk_metrics` (...);
+```
+
+## 📊 Metric Calculation Logic
+
+### Risk Score Calculation
+
+```mermaid
+graph TD
+    A[Scenario States] --> B[Identify SDC Track]
+    A --> C[Identify Other Actors]
+    
+    B --> D[Align States by Timestep]
+    C --> D
+    
+    D --> E[Calculate TTC & Closing Speed]
+    E --> F[TTC Component<br/>min(1.0, 5.0 / max(min_ttc_s, 0.1))]
+    E --> G[Closing Component<br/>min(1.0, max_closing_speed_mps / 15.0)]
+    E --> H[Breach Component<br/>min(1.0, (num_ttc_below_3s + 2 * num_ttc_below_1_5s) / 20.0)]
+    
+    F --> I[Risk Score<br/>0.5 * ttc + 0.3 * closing + 0.2 * breach]
+    G --> I
+    H --> I
+    
+    style I fill:#ffcccc
+```
+
+### Complexity Score Calculation
+
+```mermaid
+graph TD
+    A[Interaction Metrics] --> B[Distance Component<br/>min(1.0, 10.0 / (min_sdc_distance_m + 0.1))]
+    A --> C[Interaction Component<br/>min(1.0, num_close_interactions / 50.0)]
+    A --> D[Speed Component<br/>min(1.0, sdc_max_speed_mps / 25.0)]
+    A --> E[Actor Component<br/>min(1.0, num_unique_close_actors / 10.0)]
+    A --> F[Movement Component<br/>min(1.0, sdc_distance_traveled_m / 200.0)]
+    
+    B --> G[Complexity Score<br/>0.30 * distance + 0.25 * interaction + 0.20 * speed + 0.15 * actor + 0.10 * movement]
+    C --> G
+    D --> G
+    E --> G
+    F --> G
+    
+    style G fill:#cce5ff
+```
+
+### Comfort Score Calculation
+
+```mermaid
+graph TD
+    A[SDC States] --> B[Calculate Acceleration<br/>dv/dt]
+    A --> C[Calculate Jerk<br/>da/dt]
+    
+    B --> D[Longitudinal Comfort<br/>Based on forward/backward acceleration]
+    C --> E[Lateral Comfort<br/>Based on turning acceleration/jerk]
+    
+    D --> F[Comfort Score<br/>Not yet implemented]
+    E --> F
+    
+    style F fill:#ccffcc
+    style A stroke-dasharray: 5 5
+    style F stroke-dasharray: 5 5
 ```
 
 ## 🔮 Future Extensions
