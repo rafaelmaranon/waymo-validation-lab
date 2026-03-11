@@ -762,9 +762,8 @@ def render_scenario_playback(
 ):
     st.header("10 — Scenario Playback")
     st.caption(
-        "Trajectory visualization from Waymo data. "
-        "Risk thresholds and sliders **do not affect this view** — "
-        "actor motion is fixed from the raw scenario."
+        "Original Waymo trajectories. "
+        "Risk thresholds do not affect this view — actor motion is fixed from the raw scenario."
     )
 
     play_tab, metrics_tab = st.tabs(["▶ Playback", "📊 Metrics"])
@@ -781,7 +780,6 @@ def render_scenario_playback(
             )
             return
 
-        # Filter to this scenario (valid states only)
         sc_states = states_df[
             (states_df["scenario_id"] == scenario_id) & (states_df["valid"] == True)
         ].copy()
@@ -791,9 +789,22 @@ def render_scenario_playback(
             st.info(f"No trajectory data available for scenario `{scenario_id}`.")
             return
 
-        # Timestep slider
         min_t = int(sc_states["timestep"].min())
         max_t = int(sc_states["timestep"].max())
+        actor_count = sc_states["track_id"].nunique()
+
+        # ---- metrics row ----
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("Actors", actor_count)
+        mc2.metric("Frames", f"{max_t - min_t + 1}")
+        mc3.metric("Duration", f"{(max_t - min_t) * 0.1:.1f} s")
+        if "object_type" in sc_tracks.columns:
+            type_counts = sc_tracks["object_type"].value_counts()
+            breakdown = "  ·  ".join(f"{v} {k.title()}" for k, v in type_counts.items())
+        else:
+            breakdown = "—"
+        mc4.metric("Scene", breakdown)
+
         frame = st.slider(
             "Timestep",
             min_value=min_t,
@@ -802,19 +813,48 @@ def render_scenario_playback(
             key="playback_frame",
         )
 
-        # Identify SDC
+        # ---- identify SDC ----
         sdc_rows = sc_tracks[sc_tracks["is_sdc"] == True]
         sdc_track_id = sdc_rows.iloc[0]["track_id"] if not sdc_rows.empty else None
 
-        # Color scheme
-        type_colors = {
-            "VEHICLE": "#3a7ca5",
-            "PEDESTRIAN": "#e0891a",
-            "CYCLIST": "#4caf50",
+        # ---- dark theme style ----
+        _DARK = {
+            "figure.facecolor": "#12121e",
+            "axes.facecolor":   "#1a1a2e",
+            "axes.edgecolor":   "#3a3a5c",
+            "axes.labelcolor":  "#9999bb",
+            "xtick.color":      "#666688",
+            "ytick.color":      "#666688",
+            "grid.color":       "#252540",
+            "grid.linewidth":   0.6,
+            "text.color":       "#ccccdd",
+            "font.size":        9,
+            "axes.titlesize":   11,
+            "axes.labelsize":   9,
+            "xtick.labelsize":  8,
+            "ytick.labelsize":  8,
         }
+        plt.rcParams.update(_DARK)
 
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, ax = plt.subplots(figsize=(11, 6.5))
 
+        # ---- scene auto-zoom ----
+        x_all, y_all = sc_states["x"], sc_states["y"]
+        x_rng = max(x_all.max() - x_all.min(), 30)
+        y_rng = max(y_all.max() - y_all.min(), 30)
+        pad_x, pad_y = x_rng * 0.12 + 8, y_rng * 0.12 + 8
+        ax.set_xlim(x_all.min() - pad_x, x_all.max() + pad_x)
+        ax.set_ylim(y_all.min() - pad_y, y_all.max() + pad_y)
+
+        # ---- color scheme ----
+        TYPE_COLORS = {
+            "VEHICLE":    "#4a9eca",
+            "PEDESTRIAN": "#f4a261",
+            "CYCLIST":    "#52b788",
+        }
+        SDC_COLOR = "#e63946"
+
+        # ---- draw actors ----
         for track_id, group in sc_states.groupby("track_id"):
             history = group[group["timestep"] <= frame].sort_values("timestep")
             if history.empty:
@@ -822,74 +862,124 @@ def render_scenario_playback(
 
             obj_type = str(group["object_type"].iloc[0]).upper() if "object_type" in group.columns else "VEHICLE"
             is_sdc = track_id == sdc_track_id
+            color = SDC_COLOR if is_sdc else TYPE_COLORS.get(obj_type, "#7777aa")
+            base_alpha = 0.9 if is_sdc else 0.35
+            lw = 2.2 if is_sdc else 1.0
 
-            if is_sdc:
-                color = "#d94f4f"
-                alpha_line = 0.85
-                lw = 2.2
-                scatter_size = 160
-                marker = "*"
-                zorder = 10
-            else:
-                color = type_colors.get(obj_type, "#aaaaaa")
-                alpha_line = 0.25
-                lw = 0.8
-                scatter_size = 35
-                marker = "o"
-                zorder = 5
+            # Fading trajectory trail (last 40 steps)
+            trail = history.tail(40)
+            n = len(trail)
+            if n > 1:
+                for i in range(1, n):
+                    seg_alpha = base_alpha * ((i / n) ** 0.55)
+                    ax.plot(
+                        trail["x"].values[i - 1 : i + 1],
+                        trail["y"].values[i - 1 : i + 1],
+                        color=color,
+                        alpha=seg_alpha,
+                        linewidth=lw,
+                        solid_capstyle="round",
+                        zorder=4,
+                    )
 
-            # Trajectory history
-            if len(history) > 1:
-                ax.plot(
-                    history["x"].values,
-                    history["y"].values,
-                    color=color,
-                    alpha=alpha_line,
-                    linewidth=lw,
-                    zorder=zorder - 1,
-                )
-
-            # Current position
+            # Current position dot / star
             cur = history.iloc[-1]
             ax.scatter(
-                cur["x"],
-                cur["y"],
-                s=scatter_size,
+                cur["x"], cur["y"],
+                s=200 if is_sdc else 45,
                 c=color,
-                edgecolors="white",
-                linewidths=0.5,
-                zorder=zorder,
-                marker=marker,
+                marker="*" if is_sdc else "o",
+                edgecolors="white" if is_sdc else color,
+                linewidths=1.2 if is_sdc else 0.0,
+                zorder=10 if is_sdc else 6,
+                alpha=1.0,
             )
 
-        # Legend
-        legend_elements = [
-            Line2D([0], [0], marker="*", color="w", markerfacecolor="#d94f4f", markersize=14, label="SDC"),
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="#3a7ca5", markersize=9, label="Vehicle"),
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="#e0891a", markersize=9, label="Pedestrian"),
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="#4caf50", markersize=9, label="Cyclist"),
+            # Heading arrow (if column available)
+            if "heading_rad" in cur.index and not pd.isna(cur["heading_rad"]):
+                arrow_len = 5.5 if is_sdc else 3.5
+                dx = float(np.cos(cur["heading_rad"])) * arrow_len
+                dy = float(np.sin(cur["heading_rad"])) * arrow_len
+                ax.annotate(
+                    "",
+                    xy=(cur["x"] + dx, cur["y"] + dy),
+                    xytext=(cur["x"], cur["y"]),
+                    arrowprops=dict(
+                        arrowstyle="-|>",
+                        color=color,
+                        lw=1.8 if is_sdc else 0.9,
+                        alpha=0.95,
+                    ),
+                    zorder=11,
+                )
+
+            # SDC label
+            if is_sdc:
+                ax.annotate(
+                    "  SDC",
+                    (cur["x"], cur["y"]),
+                    xytext=(6, 6),
+                    textcoords="offset points",
+                    fontsize=8,
+                    fontweight="bold",
+                    color=SDC_COLOR,
+                    zorder=12,
+                )
+
+        # ---- frame counter badge (top-left inside plot) ----
+        ax.text(
+            0.012, 0.975,
+            f"t = {frame:03d}   {frame * 0.1:.1f} s",
+            transform=ax.transAxes,
+            fontsize=8,
+            fontweight="bold",
+            color="#ccccdd",
+            va="top",
+            bbox=dict(boxstyle="round,pad=0.35", facecolor="#252540", edgecolor="#3a3a5c", alpha=0.9),
+            zorder=20,
+        )
+
+        # ---- compact legend (bottom-right) ----
+        legend_handles = [
+            Line2D([0], [0], marker="*", color="w", markerfacecolor=SDC_COLOR,           markersize=11, label="SDC",        linestyle="None"),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#4a9eca",            markersize=7,  label="Vehicle",     linestyle="None"),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#f4a261",            markersize=7,  label="Pedestrian",  linestyle="None"),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#52b788",            markersize=7,  label="Cyclist",     linestyle="None"),
         ]
-        ax.legend(handles=legend_elements, loc="upper right", fontsize=9)
+        ax.legend(
+            handles=legend_handles,
+            loc="lower right",
+            fontsize=8,
+            facecolor="#1a1a2e",
+            edgecolor="#3a3a5c",
+            labelcolor="#ccccdd",
+            borderpad=0.5,
+            handletextpad=0.4,
+            labelspacing=0.3,
+        )
 
         ax.set_aspect("equal")
-        ax.set_title(f"Scenario {scenario_id[:8]} — Frame {frame}")
-        ax.set_xlabel("X position (m)")
-        ax.set_ylabel("Y position (m)")
-        ax.grid(True, alpha=0.2)
-        plt.tight_layout()
-        st.pyplot(fig)
+        ax.set_title(f"Scenario  {scenario_id[:8]}", fontsize=11, fontweight="bold", pad=8)
+        ax.set_xlabel("X (m)", labelpad=4)
+        ax.set_ylabel("Y (m)", labelpad=4)
+        ax.grid(True)
+        plt.tight_layout(pad=1.0)
+
+        st.pyplot(fig, use_container_width=True)
         plt.close(fig)
 
-        actor_count = sc_states["track_id"].nunique()
+        # Reset rcParams so dark theme doesn't bleed into other charts
+        plt.rcParams.update(plt.rcParamsDefault)
+
         st.caption(
-            f"Frame **{frame}** / {max_t} · "
-            f"**{actor_count}** actors · "
-            "Faint lines show each actor's path up to the current frame."
+            f"Trail shows last **40 frames** per actor · "
+            "Arrow = heading direction · "
+            "Risk thresholds **do not affect** this view."
         )
 
     with metrics_tab:
         st.info(
-            "Detailed metrics and live risk recomputation are available in "
+            "Detailed metrics and live risk recomputation are in "
             "**Section 9 — Scenario Review** above."
         )
 
