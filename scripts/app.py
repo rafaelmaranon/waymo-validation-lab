@@ -1288,30 +1288,112 @@ def render_explorer_gif_grid(
         """
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
         <script>mermaid.initialize({ startOnLoad: true, theme: 'base',
-            themeVariables: { fontSize: '15px' } });</script>
-        <div class="mermaid" style="padding: 8px 0;">
-        flowchart LR
-            A["Waymo Scenario Logs<br/>Position &#8226; Velocity &#8226; Actor State"]
-            B["Interaction Signals<br/>Relative Position &#8226; Relative Velocity"]
-            C["Safety Metrics<br/>TTC &#8226; Closing Speed &#8226; Exposure"]
-            D["Scenario Risk Score"]
+            themeVariables: { fontSize: '13px', fontFamily: 'sans-serif' } });
+        </script>
+        <style>
+            .diagram-wrap { cursor: pointer; }
+            .hint { font-size: 11px; color: #999; margin: 0 0 4px 2px;
+                    font-family: sans-serif; user-select: none; }
+        </style>
 
-            A --> B
-            B --> C
-            C --> D
-
-            classDef logs fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
-            classDef interaction fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
-            classDef metrics fill:#fff3e0,stroke:#fb8c00,stroke-width:2px;
-            classDef risk fill:#ffebee,stroke:#e53935,stroke-width:2px;
-
-            class A logs
-            class B interaction
-            class C metrics
-            class D risk
+        <!-- Simple overview (visible by default) -->
+        <div id="simple" class="diagram-wrap" onclick="toggle()">
+            <p class="hint">&#9654; Click to expand full pipeline</p>
+            <div class="mermaid">
+            flowchart LR
+                A["Waymo Scenario Logs<br/>Position &#8226; Velocity &#8226; Actor State"]
+                B["Interaction Signals<br/>Relative Position &#8226; Relative Velocity"]
+                C["Safety Metrics<br/>TTC &#8226; Closing Speed &#8226; Exposure"]
+                D["Scenario Risk Score"]
+                A --> B
+                B --> C
+                C --> D
+                classDef logs fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
+                classDef interaction fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
+                classDef metrics fill:#fff3e0,stroke:#fb8c00,stroke-width:2px;
+                classDef risk fill:#ffebee,stroke:#e53935,stroke-width:2px;
+                class A logs
+                class B interaction
+                class C metrics
+                class D risk
+            </div>
         </div>
+
+        <!-- Detailed pipeline (hidden by default, pre-rendered for instant toggle) -->
+        <div id="detail" class="diagram-wrap" style="visibility:hidden;height:0;overflow:hidden;" onclick="toggle()">
+            <p class="hint">&#9660; Click to collapse</p>
+            <div class="mermaid">
+            %%{init: {'theme':'base'}}%%
+            flowchart LR
+                subgraph A["Waymo Dataset"]
+                    A1["Positions"]
+                    A2["Velocities"]
+                    A3["Actor State / Validity"]
+                    A4["Heading"]
+                    A5["Map"]
+                end
+                subgraph B["Supporting Metrics"]
+                    B1["Distance"]
+                    B2["Relative Velocity"]
+                    B3["TTC"]
+                    B4["Exposure"]
+                    B5["Accel / Jerk"]
+                    B6["Interactions"]
+                end
+                subgraph C["Final Outputs"]
+                    C1["Risk"]
+                    C2["Comfort"]
+                    C3["Complexity"]
+                    C4["Explorer"]
+                    C5["Insights"]
+                end
+                A1 --> B1
+                A3 -.-> B1
+                A2 --> B2
+                A3 -.-> B2
+                B1 --> B3
+                B2 --> B3
+                A3 -.-> B3
+                B3 --> B4
+                A2 --> B5
+                A4 --> B5
+                A3 -.-> B5
+                B1 --> B6
+                A3 -.-> B6
+                B3 --> C1
+                B2 --> C1
+                B4 --> C1
+                B5 --> C2
+                B6 --> C3
+                A5 --> C4
+                C1 --> C4
+                C1 --> C5
+                C2 --> C5
+                C3 --> C5
+                classDef dataset fill:#E3F2FD,stroke:#1E88E5,stroke-width:2px;
+                classDef metrics fill:#F3E5F5,stroke:#8E24AA,stroke-width:2px;
+                classDef outputs fill:#FFF3E0,stroke:#FB8C00,stroke-width:2px;
+                class A1,A2,A3,A4,A5 dataset
+                class B1,B2,B3,B4,B5,B6 metrics
+                class C1,C2,C3,C4,C5 outputs
+            </div>
+        </div>
+
+        <script>
+        function toggle() {
+            var s = document.getElementById('simple');
+            var d = document.getElementById('detail');
+            if (s.style.visibility !== 'hidden') {
+                s.style.visibility = 'hidden'; s.style.height = '0'; s.style.overflow = 'hidden';
+                d.style.visibility = 'visible'; d.style.height = 'auto'; d.style.overflow = 'visible';
+            } else {
+                d.style.visibility = 'hidden'; d.style.height = '0'; d.style.overflow = 'hidden';
+                s.style.visibility = 'visible'; s.style.height = 'auto'; s.style.overflow = 'visible';
+            }
+        }
+        </script>
         """,
-        height=160,
+        height=520,
     )
 
 
