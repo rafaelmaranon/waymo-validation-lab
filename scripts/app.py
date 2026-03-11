@@ -33,6 +33,7 @@ def build_merged_table(
     scenario_metrics: pd.DataFrame | None,
     interaction_metrics: pd.DataFrame | None,
     risk_metrics: pd.DataFrame | None,
+    comfort_metrics: pd.DataFrame | None,
 ) -> pd.DataFrame:
     """Merge available tables into one row-per-scenario dataframe."""
     df = scenarios[["scenario_id", "num_tracks", "data_source"]].copy()
@@ -61,11 +62,23 @@ def build_merged_table(
             risk_metrics[["scenario_id", "risk_score"]], on="scenario_id", how="left"
         )
 
+    if comfort_metrics is not None and "comfort_score" in comfort_metrics.columns:
+        comfort_cols = ["scenario_id", "comfort_score"]
+        # Add comfort detail columns if available
+        for c in ["max_acceleration_mps2", "max_deceleration_mps2", "max_jerk_mps3"]:
+            if c in comfort_metrics.columns:
+                comfort_cols.append(c)
+        df = df.merge(comfort_metrics[comfort_cols], on="scenario_id", how="left")
+
     return df
 
 
 def has_risk_score(df: pd.DataFrame) -> bool:
     return "risk_score" in df.columns and df["risk_score"].notna().any()
+
+
+def has_comfort_score(df: pd.DataFrame) -> bool:
+    return "comfort_score" in df.columns and df["comfort_score"].notna().any()
 
 
 def risk_col(df: pd.DataFrame) -> str:
@@ -125,6 +138,10 @@ def render_top_scenarios_table(merged: pd.DataFrame):
     for c in ["min_ttc_s", "max_closing_speed_mps", "num_ttc_below_3s"]:
         if c in merged.columns:
             display_cols.append(c)
+    
+    # Add comfort score if available
+    if has_comfort_score(merged):
+        display_cols.append("comfort_score")
     
     for c in [
         "min_sdc_distance_m",
@@ -324,23 +341,48 @@ def render_comfort_panel(comfort_metrics: pd.DataFrame | None):
     st.header("6 — Comfort")
 
     if comfort_metrics is not None and "comfort_score" in comfort_metrics.columns:
+        # A. Top scenarios by comfort (least comfortable first)
         sorted_df = comfort_metrics.sort_values("comfort_score", ascending=False).head(10)
-        st.dataframe(sorted_df, use_container_width=True, hide_index=True)
+        
+        fig1, ax1 = plt.subplots(figsize=(8, 4))
+        short_ids = [sid[:8] for sid in sorted_df["scenario_id"]]
+        ax1.barh(short_ids[::-1], sorted_df["comfort_score"].values[::-1], color="#6aaa64")
+        ax1.set_xlabel("Comfort Score (higher = less comfortable)")
+        ax1.set_title("Top 10 Scenarios by Comfort Score")
+        ax1.set_xlim(0, max(1.0, sorted_df["comfort_score"].max() * 1.15))
+        plt.tight_layout()
+        st.pyplot(fig1)
+        plt.close(fig1)
 
-        fig, ax = plt.subplots(figsize=(8, 3.5))
-        ax.hist(
+        # B. Comfort distribution
+        fig2, ax2 = plt.subplots(figsize=(8, 3.5))
+        ax2.hist(
             comfort_metrics["comfort_score"].dropna(),
             bins=15,
             color="#6aaa64",
             edgecolor="white",
             alpha=0.85,
         )
-        ax.set_xlabel("Comfort Score")
-        ax.set_ylabel("Scenarios")
-        ax.set_title("Distribution of Comfort Score")
+        ax2.set_xlabel("Comfort Score (higher = less comfortable)")
+        ax2.set_ylabel("Scenarios")
+        ax2.set_title("Distribution of Comfort Score")
         plt.tight_layout()
-        st.pyplot(fig)
-        plt.close(fig)
+        st.pyplot(fig2)
+        plt.close(fig2)
+
+        # C. Detail table
+        detail_cols = ["scenario_id", "comfort_score"]
+        for c in ["max_acceleration_mps2", "max_deceleration_mps2", "max_jerk_mps3"]:
+            if c in comfort_metrics.columns:
+                detail_cols.append(c)
+        
+        detail_df = comfort_metrics[detail_cols].sort_values("comfort_score", ascending=False).head(10)
+        st.dataframe(detail_df, use_container_width=True, hide_index=True)
+        
+        st.caption(
+            "✅ **Real comfort metrics** computed from SDC acceleration, jerk, and heading rate. "
+            "Higher scores indicate less comfortable motion (more abrupt)."
+        )
     else:
         st.info("**Comfort metrics not yet available.**")
         st.markdown(
@@ -433,22 +475,28 @@ scenario_interest_score = (
     # Comfort Score Logic
     with st.expander("🟢 Comfort Score Logic"):
         st.markdown("""
-**Plain English:** Comfort measures ride quality through acceleration, jerk, and smoothness. 
-Higher acceleration and jerk indicate less comfortable driving experiences.
+**Plain English:** Comfort measures ride quality through acceleration, jerk, and heading rate. 
+Higher acceleration and jerk indicate less comfortable (more abrupt) driving experiences.
         """)
         
         st.code("""
-# Not yet implemented - placeholder logic
-comfort_score = 0.0  # Will be computed from SDC acceleration/jerk metrics
+comfort_score = 0.25 * accel_component + 0.30 * decel_component + 0.30 * jerk_component + 0.15 * heading_component
+
+accel_component = min(1.0, max_acceleration_mps2 / 4.0)
+decel_component = min(1.0, max_deceleration_mps2 / 4.0)
+jerk_component = min(1.0, max_jerk_mps3 / 10.0)
+heading_component = min(1.0, max_heading_rate_radps / 0.8)
         """, language="python")
         
         st.markdown("""
 **Main Assumptions:**
-- Comfort metrics not yet available
-- Will use SDC acceleration and jerk when implemented
-- Lower acceleration/jerk = higher comfort scores
-- Comfort scores will be normalized to [0, 1] range
-- Future implementation will analyze longitudinal and lateral comfort separately
+- Comfort computed from SDC motion only (acceleration, jerk, heading rate)
+- Acceleration/deceleration > 4 m/s² considered uncomfortable
+- Jerk > 10 m/s³ considered uncomfortable
+- Heading rate > 0.8 rad/s considered uncomfortable
+- Higher comfort scores = less comfortable motion
+- Components normalized to [0, 1] range
+- dt = 0.1s (Waymo 10 Hz scenario rate)
         """)
 
 
@@ -493,7 +541,7 @@ def main():
         "comfort_metrics.parquet": comfort_metrics is not None,
     }
 
-    merged = build_merged_table(scenarios, scenario_metrics, interaction_metrics, risk_metrics)
+    merged = build_merged_table(scenarios, scenario_metrics, interaction_metrics, risk_metrics, comfort_metrics)
 
     # ---- render sections ----
     render_dataset_summary(scenarios, loaded_files)

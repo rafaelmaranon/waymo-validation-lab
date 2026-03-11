@@ -81,7 +81,7 @@ def validate_json_exports(json_dir: Path) -> List[str]:
 def validate_data_consistency(scenarios_df: pd.DataFrame, tracks_df: pd.DataFrame, 
                             states_df: pd.DataFrame, metrics_df: pd.DataFrame,
                             interaction_df: pd.DataFrame, risk_df: pd.DataFrame,
-                            json_scenario_ids: List[str]):
+                            comfort_df: pd.DataFrame, json_scenario_ids: List[str]):
     """Validate data consistency across tables."""
     
     print()
@@ -175,6 +175,25 @@ def validate_data_consistency(scenarios_df: pd.DataFrame, tracks_df: pd.DataFram
                     else:
                         print(f"⚠️  Some TTC values are non-positive: min={min_ttc:.3f}s")
     
+    # Validate comfort metrics specifically
+    if comfort_df is not None and 'comfort_score' in comfort_df.columns:
+        valid_scores = comfort_df['comfort_score'].dropna()
+        if len(valid_scores) > 0:
+            min_score = valid_scores.min()
+            max_score = valid_scores.max()
+            if 0.0 <= min_score and max_score <= 1.0:
+                print("✅ Comfort scores are in valid range [0, 1]")
+            else:
+                print(f"⚠️  Comfort scores outside valid range: [{min_score:.3f}, {max_score:.3f}]")
+            
+            # Check for reasonable acceleration/jerk values
+            if 'max_acceleration_mps2' in comfort_df.columns:
+                accel_values = comfort_df['max_acceleration_mps2'].dropna()
+                if len(accel_values) > 0 and accel_values.max() < 20.0:  # Reasonable upper bound
+                    print("✅ Acceleration values are reasonable")
+                else:
+                    print(f"⚠️  Some acceleration values may be unrealistic: max={accel_values.max():.1f} m/s²")
+    
     # Validate expected scenario count
     expected_count = 10
     if scenarios_df is not None:
@@ -205,7 +224,8 @@ def main():
         (silver_dir / 'states.parquet', 'States table'),
         (gold_dir / 'scenario_metrics.parquet', 'Scenario metrics table'),
         (gold_dir / 'interaction_metrics.parquet', 'Interaction metrics table'),
-        (gold_dir / 'risk_metrics.parquet', 'Risk metrics table')
+        (gold_dir / 'risk_metrics.parquet', 'Risk metrics table'),
+        (gold_dir / 'comfort_metrics.parquet', 'Comfort metrics table')
     ]
     
     all_files_exist = True
@@ -242,6 +262,9 @@ def main():
     risk_df = validate_parquet_file(gold_dir / 'risk_metrics.parquet', 'Risk metrics table')
     print()
     
+    comfort_df = validate_parquet_file(gold_dir / 'comfort_metrics.parquet', 'Comfort metrics table')
+    print()
+    
     print("📄 VALIDATING JSON EXPORTS")
     print("=" * 40)
     
@@ -250,7 +273,7 @@ def main():
     print()
     
     # Data consistency validation
-    validate_data_consistency(scenarios_df, tracks_df, states_df, metrics_df, interaction_df, risk_df, json_scenario_ids)
+    validate_data_consistency(scenarios_df, tracks_df, states_df, metrics_df, interaction_df, risk_df, comfort_df, json_scenario_ids)
     
     print()
     print("=" * 60)

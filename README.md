@@ -81,6 +81,7 @@ python scripts/waymo_real_parser.py
 python scripts/compute_basic_metrics.py
 python scripts/compute_interaction_metrics.py
 python scripts/compute_risk_metrics.py
+python scripts/compute_comfort_metrics.py
 python scripts/validate_outputs.py
 
 # Generate visualizations
@@ -114,6 +115,7 @@ waymo-validation-lab/
     ├── compute_basic_metrics.py     # Calculate basic scenario metrics
     ├── compute_interaction_metrics.py # Calculate SDC interaction metrics
     ├── compute_risk_metrics.py      # Calculate risk metrics from TTC/closing speed
+    ├── compute_comfort_metrics.py   # Calculate comfort metrics from acceleration/jerk
     ├── app.py                       # Streamlit validation dashboard
     ├── plot_first_scenario.py       # Generate trajectory plot
     ├── animate_first_scenario.py    # Create animation GIF
@@ -157,6 +159,11 @@ waymo-validation-lab/
 - num_ttc_below_3s, num_ttc_below_1_5s
 - closest_risk_actor_track_id, closest_risk_actor_type
 - min_risk_distance_m, risk_score_components
+
+**comfort_metrics**
+- scenario_id, max_acceleration_mps2, max_deceleration_mps2
+- max_jerk_mps3, mean_abs_jerk_mps3, max_heading_rate_radps
+- comfort_score, comfort_score_components
 
 ## ⚠️ Environment Notes
 
@@ -244,18 +251,26 @@ graph TD
 
 ```mermaid
 graph TD
-    A[SDC States] --> B[Calculate Acceleration<br/>dv/dt]
-    A --> C[Calculate Jerk<br/>da/dt]
+    A[SDC States] --> B[Calculate Speed<br/>sqrt(vx² + vy²)]
+    A --> C[Sort by Timestep]
     
-    B --> D[Longitudinal Comfort<br/>Based on forward/backward acceleration]
-    C --> E[Lateral Comfort<br/>Based on turning acceleration/jerk]
+    B --> D[Compute Acceleration<br/>dv/dt]
+    C --> D
     
-    D --> F[Comfort Score<br/>Not yet implemented]
-    E --> F
+    D --> E[Compute Jerk<br/>da/dt]
+    D --> F[Compute Heading Rate<br/>wrapped_angle_diff / dt]
     
-    style F fill:#ccffcc
-    style A stroke-dasharray: 5 5
-    style F stroke-dasharray: 5 5
+    E --> G[Acceleration Component<br/>min(1.0, max_acceleration_mps2 / 4.0)]
+    E --> H[Deceleration Component<br/>min(1.0, max_deceleration_mps2 / 4.0)]
+    E --> I[Jerk Component<br/>min(1.0, max_jerk_mps3 / 10.0)]
+    F --> J[Heading Component<br/>min(1.0, max_heading_rate_radps / 0.8)]
+    
+    G --> K[Comfort Score<br/>0.25*accel + 0.30*decel + 0.30*jerk + 0.15*heading]
+    H --> K
+    I --> K
+    J --> K
+    
+    style K fill:#ccffcc
 ```
 
 ## 🔮 Future Extensions
