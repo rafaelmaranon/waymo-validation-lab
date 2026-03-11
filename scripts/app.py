@@ -1318,17 +1318,50 @@ def render_explorer_gif_grid(
             %%{init: {'theme':'base'}}%%
             flowchart LR
                 subgraph A["Waymo Dataset"]
-                    A1["Positions"] A2["Velocities"] A3["Actor State / Validity"] A4["Heading"] A5["Map"]
+                    A1["Positions"]
+                    A2["Velocities"]
+                    A3["Actor State / Validity"]
+                    A4["Heading"]
+                    A5["Map"]
                 end
                 subgraph B["Supporting Metrics"]
-                    B1["Distance"] B2["Relative Velocity"] B3["TTC"] B4["Exposure"] B5["Accel / Jerk"] B6["Interactions"]
+                    B1["Distance"]
+                    B2["Relative Velocity"]
+                    B3["TTC"]
+                    B4["Exposure"]
+                    B5["Accel / Jerk"]
+                    B6["Interactions"]
                 end
                 subgraph C["Final Outputs"]
-                    C1["Risk"] C2["Comfort"] C3["Complexity"] C4["Explorer"] C5["Insights"]
+                    C1["Risk"]
+                    C2["Comfort"]
+                    C3["Complexity"]
+                    C4["Explorer"]
+                    C5["Insights"]
                 end
-                A1-->B1 A3-.->B1 A2-->B2 A3-.->B2 B1-->B3 B2-->B3 A3-.->B3 B3-->B4
-                A2-->B5 A4-->B5 A3-.->B5 B1-->B6 A3-.->B6
-                B3-->C1 B2-->C1 B4-->C1 B5-->C2 B6-->C3 A5-->C4 C1-->C4 C1-->C5 C2-->C5 C3-->C5
+                A1 --> B1
+                A3 -.-> B1
+                A2 --> B2
+                A3 -.-> B2
+                B1 --> B3
+                B2 --> B3
+                A3 -.-> B3
+                B3 --> B4
+                A2 --> B5
+                A4 --> B5
+                A3 -.-> B5
+                B1 --> B6
+                A3 -.-> B6
+                B3 --> C1
+                B2 --> C1
+                B4 --> C1
+                B5 --> C2
+                B6 --> C3
+                A5 --> C4
+                C1 --> C4
+                C1 --> C5
+                C2 --> C5
+                C3 --> C5
                 classDef dataset fill:#E3F2FD,stroke:#1E88E5,stroke-width:2px;
                 classDef metrics fill:#F3E5F5,stroke:#8E24AA,stroke-width:2px;
                 classDef outputs fill:#FFF3E0,stroke:#FB8C00,stroke-width:2px;
