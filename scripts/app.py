@@ -1233,22 +1233,6 @@ def render_explorer_gif_grid(
         "Click **Review →** to investigate a scenario in detail."
     )
 
-    # Uniform tile height regardless of GIF aspect ratio
-    st.markdown(
-        """
-        <style>
-        [data-testid="column"] [data-testid="stImage"] img {
-            height: 260px;
-            width: 100%;
-            object-fit: contain;
-            background-color: #12121e;
-            border-radius: 6px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
     available = [sid for sid in review_sorted_ids if (previews_dir / f"{sid}.gif").exists()]
 
     if not available:
@@ -1272,8 +1256,17 @@ def render_explorer_gif_grid(
         t_s = f"{min_ttc:.2f}s"   if min_ttc    is not None else "—"
         trk = str(int(num_tracks)) if num_tracks is not None else "—"
 
+        gif_b64 = base64.b64encode((previews_dir / f"{sid}.gif").read_bytes()).decode()
+
         with cols[j]:
-            st.image((previews_dir / f"{sid}.gif").read_bytes(), use_container_width=True)
+            st.markdown(
+                f'<div style="width:100%;height:270px;overflow:hidden;'
+                f'background:#12121e;border-radius:8px;">'
+                f'<img src="data:image/gif;base64,{gif_b64}" '
+                f'style="width:100%;height:270px;object-fit:cover;border-radius:8px;display:block;"/>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
             st.markdown(
                 f"**{sid[:8]}**  \n"
                 f"risk **{r_s}** · ttc **{t_s}**  \n"
