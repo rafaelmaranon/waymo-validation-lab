@@ -12,6 +12,7 @@ import io
 import time
 import base64
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -1280,6 +1281,38 @@ def render_explorer_gif_grid(
     if st.session_state.get("explorer_selected"):
         sel = st.session_state.explorer_selected
         st.success(f"✓ **{sel[:8]}** loaded — switch to the **Review** tab to investigate.")
+
+    st.divider()
+
+    components.html(
+        """
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+        <script>mermaid.initialize({ startOnLoad: true, theme: 'base',
+            themeVariables: { fontSize: '15px' } });</script>
+        <div class="mermaid" style="padding: 8px 0;">
+        flowchart LR
+            A["Waymo Scenario Logs<br/>Position &#8226; Velocity &#8226; Actor State"]
+            B["Interaction Signals<br/>Relative Position &#8226; Relative Velocity"]
+            C["Safety Metrics<br/>TTC &#8226; Closing Speed &#8226; Exposure"]
+            D["Scenario Risk Score"]
+
+            A --> B
+            B --> C
+            C --> D
+
+            classDef logs fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
+            classDef interaction fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
+            classDef metrics fill:#fff3e0,stroke:#fb8c00,stroke-width:2px;
+            classDef risk fill:#ffebee,stroke:#e53935,stroke-width:2px;
+
+            class A logs
+            class B interaction
+            class C metrics
+            class D risk
+        </div>
+        """,
+        height=160,
+    )
 
 
 # ============================================================
