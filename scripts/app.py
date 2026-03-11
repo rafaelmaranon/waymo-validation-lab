@@ -12,7 +12,6 @@ import io
 import time
 import base64
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -1267,125 +1266,25 @@ def render_explorer_gif_grid(
     if st.session_state.get("explorer_selected"):
         st.success(f"✓ **{st.session_state.explorer_selected[:8]}** loaded — switch to the **Review** tab.")
 
-    # ── Click-to-expand pipeline diagram ──────────────────────
+    # ── Pipeline diagram (static PNG, button toggle) ──────────
+    diagrams_dir = PROJECT_ROOT / "data" / "diagrams"
+    img_simple = diagrams_dir / "pipeline_simple.png"
+    img_full   = diagrams_dir / "pipeline_full.png"
+
+    if "pipeline_expanded" not in st.session_state:
+        st.session_state.pipeline_expanded = False
+
     st.divider()
-    components.html(
-        """
-        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-        <script>mermaid.initialize({startOnLoad:true,theme:'base',
-            themeVariables:{fontSize:'13px',fontFamily:'sans-serif'}});</script>
-        <style>
-            body { background:#f8f9fb; margin:0; padding:4px 0; overflow:hidden; }
-            .wrap { cursor:pointer; border-radius:8px; padding:6px 8px; background:#f0f2f6; }
-            .hint { font-size:11px; color:#888; margin:0 0 4px 2px; font-family:sans-serif; user-select:none; }
-        </style>
-
-        <div id="simple" class="wrap" onclick="expand()">
-            <p class="hint">&#9654; Click to expand full pipeline</p>
-            <div class="mermaid">
-            flowchart LR
-                A["Waymo Scenario Logs<br/>Position &#8226; Velocity &#8226; Actor State"]
-                B["Interaction Signals<br/>Relative Position &#8226; Relative Velocity"]
-                C["Safety Metrics<br/>TTC &#8226; Closing Speed &#8226; Exposure"]
-                D["Scenario Risk Score"]
-                A --> B
-                B --> C
-                C --> D
-                classDef logs fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
-                classDef interaction fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
-                classDef metrics fill:#fff3e0,stroke:#fb8c00,stroke-width:2px;
-                classDef risk fill:#ffebee,stroke:#e53935,stroke-width:2px;
-                class A logs
-                class B interaction
-                class C metrics
-                class D risk
-            </div>
-        </div>
-
-        <!-- Detail rendered off-screen so Mermaid processes it at load time -->
-        <div id="detail" class="wrap" style="position:fixed;left:-9999px;top:0;width:900px;visibility:hidden;" onclick="collapse()">
-            <p class="hint">&#9660; Click to collapse</p>
-            <div class="mermaid">
-            %%{init: {'theme':'base'}}%%
-            flowchart LR
-                subgraph A["Waymo Dataset"]
-                    A1["Positions"]
-                    A2["Velocities"]
-                    A3["Actor State / Validity"]
-                    A4["Heading"]
-                    A5["Map"]
-                end
-                subgraph B["Supporting Metrics"]
-                    B1["Distance"]
-                    B2["Relative Velocity"]
-                    B3["TTC"]
-                    B4["Exposure"]
-                    B5["Accel / Jerk"]
-                    B6["Interactions"]
-                end
-                subgraph C["Final Outputs"]
-                    C1["Risk"]
-                    C2["Comfort"]
-                    C3["Complexity"]
-                    C4["Explorer"]
-                    C5["Insights"]
-                end
-                A1 --> B1
-                A3 -.-> B1
-                A2 --> B2
-                A3 -.-> B2
-                B1 --> B3
-                B2 --> B3
-                A3 -.-> B3
-                B3 --> B4
-                A2 --> B5
-                A4 --> B5
-                A3 -.-> B5
-                B1 --> B6
-                A3 -.-> B6
-                B3 --> C1
-                B2 --> C1
-                B4 --> C1
-                B5 --> C2
-                B6 --> C3
-                A5 --> C4
-                C1 --> C4
-                C1 --> C5
-                C2 --> C5
-                C3 --> C5
-                classDef dataset fill:#E3F2FD,stroke:#1E88E5,stroke-width:2px;
-                classDef metrics fill:#F3E5F5,stroke:#8E24AA,stroke-width:2px;
-                classDef outputs fill:#FFF3E0,stroke:#FB8C00,stroke-width:2px;
-                class A1,A2,A3,A4,A5 dataset
-                class B1,B2,B3,B4,B5,B6 metrics
-                class C1,C2,C3,C4,C5 outputs
-            </div>
-        </div>
-
-        <script>
-        function expand() {
-            var s = document.getElementById('simple');
-            var d = document.getElementById('detail');
-            s.style.display = 'none';
-            d.style.position = 'static';
-            d.style.left = 'auto';
-            d.style.width = 'auto';
-            d.style.visibility = 'visible';
-            if (window.frameElement) window.frameElement.style.height = '640px';
-        }
-        function collapse() {
-            var s = document.getElementById('simple');
-            var d = document.getElementById('detail');
-            d.style.position = 'fixed';
-            d.style.left = '-9999px';
-            d.style.visibility = 'hidden';
-            s.style.display = 'block';
-            if (window.frameElement) window.frameElement.style.height = '180px';
-        }
-        </script>
-        """,
-        height=180,
-    )
+    if st.session_state.pipeline_expanded:
+        st.image(str(img_full), use_container_width=True)
+        if st.button("▲ Collapse pipeline", key="pipeline_collapse"):
+            st.session_state.pipeline_expanded = False
+            st.rerun()
+    else:
+        st.image(str(img_simple), use_container_width=True)
+        if st.button("▼ Expand full pipeline", key="pipeline_expand"):
+            st.session_state.pipeline_expanded = True
+            st.rerun()
 
     # ── How Scores Are Calculated (collapsed, 4 nested HTML details) ──
     with st.expander("� How Scores Are Calculated →"):
