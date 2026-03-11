@@ -1255,6 +1255,11 @@ def _render_metric_cards(merged: pd.DataFrame):
 # SECTION — EXPLORER GIF GRID
 # ============================================================
 
+@st.cache_data(show_spinner=False)
+def _load_gif_b64(path: str) -> str:
+    return base64.b64encode(Path(path).read_bytes()).decode()
+
+
 def render_explorer_gif_grid(
     merged: pd.DataFrame,
     review_sorted_ids: list,
@@ -1283,7 +1288,7 @@ def render_explorer_gif_grid(
         r_s = f"{risk_score:.2f}" if risk_score is not None else "—"
         t_s = f"{min_ttc:.2f}s"   if min_ttc    is not None else "—"
         trk = str(int(num_tracks)) if num_tracks is not None else "—"
-        gif_b64 = base64.b64encode((previews_dir / f"{sid}.gif").read_bytes()).decode()
+        gif_b64 = _load_gif_b64(str(previews_dir / f"{sid}.gif"))
 
         with cols[j]:
             st.markdown(
