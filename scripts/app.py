@@ -1227,8 +1227,8 @@ def _mini_hist(ax, values, color):
     ax.tick_params(axis="x", labelsize=7, colors="#555555")
     for spine in ax.spines.values():
         spine.set_visible(False)
-    ax.set_facecolor("#f8f9fb")
-    ax.grid(axis="y", color="#e0e0e0", linewidth=0.5)
+    ax.set_facecolor("#ffffff")
+    ax.grid(axis="y", color="#e8e8e8", linewidth=0.5)
 
 
 def _render_metric_cards(merged: pd.DataFrame):
@@ -1253,7 +1253,7 @@ def _render_metric_cards(merged: pd.DataFrame):
             )
             if not series.empty:
                 fig, ax = plt.subplots(figsize=(3, 1.5))
-                fig.patch.set_facecolor("#f8f9fb")
+                fig.patch.set_facecolor("#ffffff")
                 _mini_hist(ax, series.values, card["color"])
                 ax.set_xlabel(card["xlabel"], fontsize=8, color="#555555")
                 ax.set_ylabel("Count", fontsize=8, color="#555555")
@@ -1421,9 +1421,9 @@ comfort = (0.25 * accel_component
             for p in pct
         ]
         bucket_color = {
-            "Review now":  "#e53935",
-            "Review next": "#fb8c00",
-            "Monitor":     "#43a047",
+            "Review now":  "#e63946",
+            "Review next": "#f4a261",
+            "Monitor":     "#4a9eca",
         }
         plot_df = plot_df.copy()
         plot_df["_bucket"] = bucket_label
@@ -1455,9 +1455,9 @@ comfort = (0.25 * accel_component
                 name=bucket,
                 marker=dict(
                     color=bucket_color[bucket],
-                    size=8,
-                    opacity=0.82,
-                    line=dict(width=0.5, color="rgba(255,255,255,0.15)"),
+                    size=7,
+                    opacity=0.85,
+                    line=dict(width=0.6, color="rgba(255,255,255,0.35)"),
                 ),
                 customdata=custom,
                 hovertemplate=(
@@ -1473,42 +1473,42 @@ comfort = (0.25 * accel_component
             ))
 
         # quadrant reference lines
-        fig_pl.add_hline(y=0.6, line=dict(color="#cccccc", width=1, dash="dot"))
-        fig_pl.add_vline(x=0.6, line=dict(color="#cccccc", width=1, dash="dot"))
+        fig_pl.add_hline(y=0.6, line=dict(color="rgba(255,255,255,0.15)", width=1, dash="dot"))
+        fig_pl.add_vline(x=0.6, line=dict(color="rgba(255,255,255,0.15)", width=1, dash="dot"))
 
         fig_pl.update_layout(
             height=420,
             margin=dict(l=50, r=20, t=20, b=50),
-            paper_bgcolor="#ffffff",
-            plot_bgcolor="#ffffff",
+            paper_bgcolor="#0e1117",
+            plot_bgcolor="#0e1117",
             xaxis=dict(
                 title="Complexity Score",
                 range=[-0.02, 1.05],
-                gridcolor="#eeeeee",
+                gridcolor="rgba(255,255,255,0.06)",
                 zeroline=False,
-                tickfont=dict(size=11, color="#6b7a99"),
-                title_font=dict(size=12, color="#6b7a99"),
+                tickfont=dict(size=11, color="#aaaaaa"),
+                title_font=dict(size=12, color="#aaaaaa"),
             ),
             yaxis=dict(
                 title="Interaction Score",
                 range=[-0.02, 1.05],
-                gridcolor="#eeeeee",
+                gridcolor="rgba(255,255,255,0.06)",
                 zeroline=False,
-                tickfont=dict(size=11, color="#6b7a99"),
-                title_font=dict(size=12, color="#6b7a99"),
+                tickfont=dict(size=11, color="#aaaaaa"),
+                title_font=dict(size=12, color="#aaaaaa"),
             ),
             legend=dict(
                 orientation="h",
                 yanchor="bottom", y=1.01,
                 xanchor="right", x=1,
-                font=dict(size=11),
+                font=dict(size=11, color="#aaaaaa"),
                 bgcolor="rgba(0,0,0,0)",
                 borderwidth=0,
             ),
             hoverlabel=dict(
-                bgcolor="#ffffff",
-                bordercolor="#d1d9e6",
-                font=dict(size=12, color="#1a2540", family="monospace"),
+                bgcolor="#1a1f2e",
+                bordercolor="#333d55",
+                font=dict(size=12, color="#e2e8f0", family="monospace"),
             ),
         )
 
