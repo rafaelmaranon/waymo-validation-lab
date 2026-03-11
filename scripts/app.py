@@ -1274,7 +1274,12 @@ def render_explorer_gif_grid(
             )
             if st.button("Review →", key=f"exp_rev_{sid}"):
                 st.session_state.scenario_idx = review_sorted_ids.index(sid) if sid in review_sorted_ids else 0
-                st.rerun()
+                st.session_state.explorer_selected = sid
+
+    # Feedback banner after a tile is selected
+    if st.session_state.get("explorer_selected"):
+        sel = st.session_state.explorer_selected
+        st.success(f"✓ **{sel[:8]}** loaded — switch to the **Review** tab to investigate.")
 
 
 # ============================================================
