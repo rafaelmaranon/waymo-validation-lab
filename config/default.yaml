@@ -1,0 +1,131 @@
+# Waymo Validation Lab - Default Configuration
+# This file contains default settings for the application
+
+# Project Information
+project:
+  name: "Waymo Validation Lab"
+  version: "0.1.0"
+  description: "Comprehensive validation lab for Waymo autonomous driving data"
+
+# Environment Settings
+environment:
+  debug: false
+  log_level: "INFO"
+  timezone: "UTC-07:00"
+
+# Data Configuration
+data:
+  # Input data settings
+  input_format: "waymo"
+  data_directory: "./data"
+  max_file_size_mb: 100
+  
+  # Processing settings
+  batch_size: 1000
+  parallel_processing: true
+  max_workers: 4
+
+# Validation Configuration
+validation:
+  # Rule settings
+  strict_mode: false
+  custom_rules_file: "./config/validation_rules.yaml"
+  
+  # Performance settings
+  timeout_seconds: 300
+  memory_limit_mb: 2048
+  
+  # Output settings
+  generate_reports: true
+  report_format: ["html", "json", "csv"]
+
+# Visualization Configuration
+visualization:
+  # Dashboard settings
+  dashboard_port: 8080
+  dashboard_host: "localhost"
+  auto_refresh: true
+  refresh_interval_seconds: 30
+  
+  # Chart settings
+  default_chart_type: "line"
+  color_scheme: "viridis"
+  max_data_points: 10000
+
+# Logging Configuration
+logging:
+  # File settings
+  log_file: "./logs/application.log"
+  max_log_size_mb: 50
+  backup_count: 5
+  
+  # Format settings
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  include_timestamps: true
+  
+  # Change tracking
+  track_changes: true
+  change_log_file: "./logs/change_log.json"
+
+# Testing Configuration
+testing:
+  # Test discovery
+  test_directory: "./tests"
+  test_pattern: "test_*.py"
+  
+  # Coverage settings
+  coverage_threshold: 80
+  coverage_report: true
+  coverage_output: "./htmlcov"
+
+# Performance Configuration
+performance:
+  # Caching
+  enable_caching: true
+  cache_directory: "./cache"
+  cache_ttl_seconds: 3600
+  
+  # Memory management
+  gc_threshold: 1000
+  max_memory_usage_percent: 80
+
+# Security Configuration
+security:
+  # Data protection
+  encrypt_sensitive_data: false
+  data_retention_days: 30
+  
+  # Access control
+  enable_authentication: false
+  session_timeout_minutes: 60
+
+# API Configuration
+api:
+  # REST API settings
+  enable_rest_api: false
+  api_port: 8000
+  rate_limit_per_minute: 100
+  
+  # Documentation
+  enable_swagger: true
+  swagger_url: "/docs"
+
+# Development Configuration
+development:
+  # Hot reload
+  auto_reload: true
+  watch_directories: ["./src", "./config"]
+  
+  # Debugging
+  enable_profiler: false
+  profiler_output: "./logs/profile.log"
+
+# Production Configuration
+production:
+  # Deployment
+  deployment_type: "local"
+  health_check_endpoint: "/health"
+  
+  # Monitoring
+  enable_metrics: false
+  metrics_port: 9090
