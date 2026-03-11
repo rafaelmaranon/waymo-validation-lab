@@ -1232,9 +1232,9 @@ def _mini_hist(ax, values, color):
 
 def _render_metric_cards(merged: pd.DataFrame):
     cards = [
-        {"title": "Interaction Score", "col": "risk_score", "color": "#e53935", "label": "Avg Interaction Score", "fmt": "{:.3f}"},
-        {"title": "Complexity", "col": "scenario_interest_score",  "color": "#1e88e5", "label": "Avg Complexity Score",  "fmt": "{:.3f}"},
-        {"title": "Comfort",    "col": "comfort_score",            "color": "#43a047", "label": "Avg Comfort Score",     "fmt": "{:.3f}"},
+        {"title": "Interaction Score", "col": "risk_score",              "color": "#e53935", "label": "Avg Interaction Score",       "fmt": "{:.3f}", "xlabel": "Interaction Score"},
+        {"title": "Complexity",        "col": "scenario_interest_score", "color": "#1e88e5", "label": "Avg Complexity Score",        "fmt": "{:.3f}", "xlabel": "Scenario Complexity Score"},
+        {"title": "Comfort",           "col": "comfort_score",           "color": "#43a047", "label": "Avg Comfort Score",           "fmt": "{:.3f}", "xlabel": "Comfort / Smoothness Score"},
     ]
     cols = st.columns(3)
     for col_ui, card in zip(cols, cards):
@@ -1244,9 +1244,11 @@ def _render_metric_cards(merged: pd.DataFrame):
             st.markdown(f"**{card['title']}**")
             st.metric(label=card["label"], value=card["fmt"].format(avg) if avg is not None else "—")
             if not series.empty:
-                fig, ax = plt.subplots(figsize=(3, 1.2))
+                fig, ax = plt.subplots(figsize=(3, 1.5))
                 fig.patch.set_facecolor("#f8f9fb")
                 _mini_hist(ax, series.values, card["color"])
+                ax.set_xlabel(card["xlabel"], fontsize=10)
+                ax.set_ylabel("Number of Scenarios", fontsize=10)
                 st.pyplot(fig, use_container_width=True)
                 plt.close(fig)
 
@@ -1441,6 +1443,25 @@ comfort = (0.25 * accel_component
         plt.close(fig)
     else:
         st.info("Not enough data to render Interaction Score vs. Complexity chart.")
+
+    st.markdown(
+        """
+**Scenario Triage Guide (Autonomous Vehicle Validation)**
+
+Scenarios are ranked by **interaction intensity relative to the dataset**.
+
+🔴 **Critical Interaction (Top 5%)**  
+Scenarios with the tightest margins between actors (low TTC, high closing speed, or repeated proximity).
+
+🟠 **Elevated Interaction (Next 10%)**  
+Dense multi-actor interactions that may require additional validation review.
+
+🟢 **Nominal Interaction**  
+Typical traffic flow scenarios with normal spacing between actors.
+
+**Validation workflow:** Start with **Critical Interaction scenarios in the top-right quadrant** (high interaction + high complexity).
+        """
+    )
 
 
 # ============================================================
