@@ -1494,7 +1494,7 @@ def main():
         """
         <style>
         /* ── page background ── */
-        .stApp { background-color: #f4f6fa; }
+        .stApp { background-color: #ffffff; }
         section[data-testid="stSidebar"] { background-color: #ffffff; }
 
         /* ── hide default Streamlit header decoration ── */
