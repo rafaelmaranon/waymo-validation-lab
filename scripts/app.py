@@ -1223,11 +1223,11 @@ def render_mini_playback_prototype(
 def _mini_hist(ax, values, color):
     ax.hist(values, bins=10, color=color, alpha=0.85, edgecolor="none")
     ax.set_yticks([])
-    ax.tick_params(axis="x", labelsize=7, colors="#6b7a99")
+    ax.tick_params(axis="x", labelsize=7, colors="#555555")
     for spine in ax.spines.values():
         spine.set_visible(False)
-    ax.set_facecolor("#0d1626")
-    ax.grid(axis="y", color="#1e2d40", linewidth=0.5)
+    ax.set_facecolor("#f8f9fb")
+    ax.grid(axis="y", color="#e0e0e0", linewidth=0.5)
 
 
 def _render_metric_cards(merged: pd.DataFrame):
@@ -1252,11 +1252,10 @@ def _render_metric_cards(merged: pd.DataFrame):
             )
             if not series.empty:
                 fig, ax = plt.subplots(figsize=(3, 1.5))
-                fig.patch.set_facecolor("#0d1626")
+                fig.patch.set_facecolor("#f8f9fb")
                 _mini_hist(ax, series.values, card["color"])
-                ax.set_facecolor("#0d1626")  # re-apply after _mini_hist
-                ax.set_xlabel(card["xlabel"], fontsize=8, color="#6b7a99")
-                ax.set_ylabel("Count", fontsize=8, color="#6b7a99")
+                ax.set_xlabel(card["xlabel"], fontsize=8, color="#555555")
+                ax.set_ylabel("Count", fontsize=8, color="#555555")
                 st.pyplot(fig, use_container_width=True)
                 plt.close(fig)
 
