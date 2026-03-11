@@ -143,8 +143,10 @@ def compute_scenario_risk(scenario_id: str, states_df: pd.DataFrame, tracks_df: 
     if all_ttc_values:
         min_ttc = min(all_ttc_values)
         max_closing_speed = max(all_closing_speeds)
-        num_ttc_below_3s = sum(1 for ttc in all_ttc_values if ttc < 3.0)
+        num_ttc_below_3s   = sum(1 for ttc in all_ttc_values if ttc < 3.0)
         num_ttc_below_1_5s = sum(1 for ttc in all_ttc_values if ttc < 1.5)
+        num_ttc_below_2s   = sum(1 for ttc in all_ttc_values if ttc < 2.0)
+        num_ttc_below_1s   = sum(1 for ttc in all_ttc_values if ttc < 1.0)
         
         # Find the highest risk event (lowest TTC)
         highest_risk_event = min(event_details, key=lambda e: e['ttc'])
@@ -159,41 +161,42 @@ def compute_scenario_risk(scenario_id: str, states_df: pd.DataFrame, tracks_df: 
         closest_risk_actor_track_id = None
         closest_risk_actor_type = None
         min_risk_distance = None
-    
-    # Compute risk score components (recalibrated — balanced preset defaults)
-    ttc_warning  = 3.0
-    ttc_critical = 1.5
+        num_ttc_below_2s   = 0
+        num_ttc_below_1s   = 0
+
+    # Compute risk score components (recalibrated — normal driving = low score)
+    ttc_warning  = 2.0
+    ttc_critical = 0.8
     if min_ttc is not None:
-        if ttc_warning <= ttc_critical:
-            ttc_component = 0.0
-        else:
-            ttc_component = max(0.0, min(1.0,
-                (ttc_warning - min_ttc) / (ttc_warning - ttc_critical)
-            ))
+        ttc_component = max(0.0, min(1.0,
+            (ttc_warning - min_ttc) / (ttc_warning - ttc_critical)
+        ))
     else:
         ttc_component = 0.0
 
-    closing_component = min(1.0, max_closing_speed / 35.0)
-    breach_component  = min(1.0, (num_ttc_below_3s + 2 * num_ttc_below_1_5s) / 80.0)
+    closing_component  = min(1.0, max_closing_speed / 40.0)
+    exposure_component = min(1.0, (num_ttc_below_2s + 2 * num_ttc_below_1s) / 150.0)
 
-    # Composite risk score with power transform to spread distribution
+    # Composite risk score with power transform
     risk_score = (
-        0.55 * ttc_component +
-        0.25 * closing_component +
-        0.20 * breach_component
-    ) ** 1.35
+        0.50 * ttc_component +
+        0.30 * closing_component +
+        0.20 * exposure_component
+    ) ** 1.5
     
     # Store components for debugging
     components = {
         'ttc_component': ttc_component,
         'closing_component': closing_component,
-        'breach_component': breach_component,
+        'exposure_component': exposure_component,
         'min_ttc_s': min_ttc,
         'max_closing_speed_mps': max_closing_speed,
         'num_ttc_below_3s': num_ttc_below_3s,
-        'num_ttc_below_1_5s': num_ttc_below_1_5s
+        'num_ttc_below_1_5s': num_ttc_below_1_5s,
+        'num_ttc_below_2s': num_ttc_below_2s,
+        'num_ttc_below_1s': num_ttc_below_1s,
     }
-    
+
     return {
         'scenario_id': scenario_id,
         'risk_score': risk_score,
@@ -201,6 +204,8 @@ def compute_scenario_risk(scenario_id: str, states_df: pd.DataFrame, tracks_df: 
         'max_closing_speed_mps': max_closing_speed,
         'num_ttc_below_3s': num_ttc_below_3s,
         'num_ttc_below_1_5s': num_ttc_below_1_5s,
+        'num_ttc_below_2s': num_ttc_below_2s,
+        'num_ttc_below_1s': num_ttc_below_1s,
         'closest_risk_actor_track_id': closest_risk_actor_track_id,
         'closest_risk_actor_type': closest_risk_actor_type,
         'min_risk_distance_m': min_risk_distance,
