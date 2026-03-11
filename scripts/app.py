@@ -12,6 +12,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from pathlib import Path
 
 # ---------- paths ----------
@@ -26,6 +27,15 @@ def load_parquet_if_exists(path: Path) -> pd.DataFrame | None:
     if path.exists():
         return pd.read_parquet(path)
     return None
+
+
+@st.cache_data
+def load_silver_for_playback(states_path: str, tracks_path: str) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+    """Load silver states and tracks with Streamlit caching for playback performance."""
+    sp, tp = Path(states_path), Path(tracks_path)
+    states = pd.read_parquet(sp) if sp.exists() else None
+    tracks = pd.read_parquet(tp) if tp.exists() else None
+    return states, tracks
 
 
 def build_merged_table(
@@ -588,23 +598,22 @@ def render_scenario_review(
     ttc_warning: float,
     ttc_critical: float,
     interaction_distance: int,
+    selected_id: str | None,
 ):
     st.header("9 — Scenario Review (Engineer Mode)")
     st.caption(
-        "Select a scenario to inspect its metrics and see how the risk score changes "
-        "under the current sidebar thresholds. Fleet View (sections 1–7) uses stored metrics. "
-        "This view recomputes scores live."
+        "Inspect a scenario's metrics and see how risk changes under current sidebar thresholds. "
+        "Fleet View (sections 1–7) uses stored metrics. This view recomputes scores live. "
+        "Use the **Scenario Analysis** selector in the sidebar to switch scenarios."
     )
 
     if risk_metrics is None or "risk_score" not in risk_metrics.columns:
         st.info("Risk metrics not available. Run `python scripts/compute_risk_metrics.py` first.")
         return
 
-    # Scenario selector — sorted by stored risk_score
-    sorted_ids = (
-        risk_metrics.sort_values("risk_score", ascending=False)["scenario_id"].tolist()
-    )
-    selected_id = st.selectbox("Select Scenario", sorted_ids, index=0)
+    if selected_id is None:
+        st.info("Select a scenario from the sidebar to begin.")
+        return
 
     # Get this scenario's rows
     risk_row = risk_metrics[risk_metrics["scenario_id"] == selected_id]
@@ -743,6 +752,149 @@ def render_scenario_review(
 
 
 # ============================================================
+# SECTION 10 — SCENARIO PLAYBACK
+# ============================================================
+
+def render_scenario_playback(
+    scenario_id: str | None,
+    states_df: pd.DataFrame | None,
+    tracks_df: pd.DataFrame | None,
+):
+    st.header("10 — Scenario Playback")
+    st.caption(
+        "Trajectory visualization from Waymo data. "
+        "Risk thresholds and sliders **do not affect this view** — "
+        "actor motion is fixed from the raw scenario."
+    )
+
+    play_tab, metrics_tab = st.tabs(["▶ Playback", "📊 Metrics"])
+
+    with play_tab:
+        if scenario_id is None:
+            st.info("Select a scenario from the sidebar to begin.")
+            return
+
+        if states_df is None or tracks_df is None:
+            st.info(
+                "Silver tables not found. "
+                "Ensure `data/silver/states.parquet` and `data/silver/tracks.parquet` exist."
+            )
+            return
+
+        # Filter to this scenario (valid states only)
+        sc_states = states_df[
+            (states_df["scenario_id"] == scenario_id) & (states_df["valid"] == True)
+        ].copy()
+        sc_tracks = tracks_df[tracks_df["scenario_id"] == scenario_id].copy()
+
+        if sc_states.empty:
+            st.info(f"No trajectory data available for scenario `{scenario_id}`.")
+            return
+
+        # Timestep slider
+        min_t = int(sc_states["timestep"].min())
+        max_t = int(sc_states["timestep"].max())
+        frame = st.slider(
+            "Timestep",
+            min_value=min_t,
+            max_value=max_t,
+            value=min_t,
+            key="playback_frame",
+        )
+
+        # Identify SDC
+        sdc_rows = sc_tracks[sc_tracks["is_sdc"] == True]
+        sdc_track_id = sdc_rows.iloc[0]["track_id"] if not sdc_rows.empty else None
+
+        # Color scheme
+        type_colors = {
+            "VEHICLE": "#3a7ca5",
+            "PEDESTRIAN": "#e0891a",
+            "CYCLIST": "#4caf50",
+        }
+
+        fig, ax = plt.subplots(figsize=(10, 8))
+
+        for track_id, group in sc_states.groupby("track_id"):
+            history = group[group["timestep"] <= frame].sort_values("timestep")
+            if history.empty:
+                continue
+
+            obj_type = str(group["object_type"].iloc[0]).upper() if "object_type" in group.columns else "VEHICLE"
+            is_sdc = track_id == sdc_track_id
+
+            if is_sdc:
+                color = "#d94f4f"
+                alpha_line = 0.85
+                lw = 2.2
+                scatter_size = 160
+                marker = "*"
+                zorder = 10
+            else:
+                color = type_colors.get(obj_type, "#aaaaaa")
+                alpha_line = 0.25
+                lw = 0.8
+                scatter_size = 35
+                marker = "o"
+                zorder = 5
+
+            # Trajectory history
+            if len(history) > 1:
+                ax.plot(
+                    history["x"].values,
+                    history["y"].values,
+                    color=color,
+                    alpha=alpha_line,
+                    linewidth=lw,
+                    zorder=zorder - 1,
+                )
+
+            # Current position
+            cur = history.iloc[-1]
+            ax.scatter(
+                cur["x"],
+                cur["y"],
+                s=scatter_size,
+                c=color,
+                edgecolors="white",
+                linewidths=0.5,
+                zorder=zorder,
+                marker=marker,
+            )
+
+        # Legend
+        legend_elements = [
+            Line2D([0], [0], marker="*", color="w", markerfacecolor="#d94f4f", markersize=14, label="SDC"),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#3a7ca5", markersize=9, label="Vehicle"),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#e0891a", markersize=9, label="Pedestrian"),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#4caf50", markersize=9, label="Cyclist"),
+        ]
+        ax.legend(handles=legend_elements, loc="upper right", fontsize=9)
+
+        ax.set_aspect("equal")
+        ax.set_title(f"Scenario {scenario_id[:8]} — Frame {frame}")
+        ax.set_xlabel("X position (m)")
+        ax.set_ylabel("Y position (m)")
+        ax.grid(True, alpha=0.2)
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+
+        actor_count = sc_states["track_id"].nunique()
+        st.caption(
+            f"Frame **{frame}** / {max_t} · "
+            f"**{actor_count}** actors · "
+            "Faint lines show each actor's path up to the current frame."
+        )
+
+    with metrics_tab:
+        st.info(
+            "Detailed metrics and live risk recomputation are available in "
+            "**Section 9 — Scenario Review** above."
+        )
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -834,6 +986,28 @@ def main():
 
     merged = build_merged_table(scenarios, scenario_metrics, interaction_metrics, risk_metrics, comfort_metrics)
 
+    # ---- silver tables for playback (cached) ----
+    states_df, tracks_df = load_silver_for_playback(
+        str(SILVER_DIR / "states.parquet"),
+        str(SILVER_DIR / "tracks.parquet"),
+    )
+
+    # ---- shared scenario selector (controls Sections 9 & 10) ----
+    if risk_metrics is not None and "risk_score" in risk_metrics.columns:
+        review_sorted_ids = risk_metrics.sort_values("risk_score", ascending=False)["scenario_id"].tolist()
+    else:
+        review_sorted_ids = scenarios["scenario_id"].tolist()
+
+    with st.sidebar:
+        st.divider()
+        st.markdown("**🔬 Scenario Analysis**")
+        selected_scenario = st.selectbox(
+            "Select Scenario",
+            review_sorted_ids,
+            index=0,
+            help="Controls Section 9 (Scenario Review) and Section 10 (Playback)",
+        )
+
     # ---- render sections ----
     render_dataset_summary(scenarios, loaded_files, ttc_warning, ttc_critical, interaction_distance)
     st.divider()
@@ -851,7 +1025,9 @@ def main():
     st.divider()
     render_score_calculation_logic()
     st.divider()
-    render_scenario_review(merged, risk_metrics, comfort_metrics, ttc_warning, ttc_critical, interaction_distance)
+    render_scenario_review(merged, risk_metrics, comfort_metrics, ttc_warning, ttc_critical, interaction_distance, selected_scenario)
+    st.divider()
+    render_scenario_playback(selected_scenario, states_df, tracks_df)
 
 
 if __name__ == "__main__":
