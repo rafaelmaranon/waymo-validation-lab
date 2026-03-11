@@ -1267,12 +1267,12 @@ def render_explorer_gif_grid(
     if st.session_state.get("explorer_selected"):
         st.success(f"✓ **{st.session_state.explorer_selected[:8]}** loaded — switch to the **Review** tab.")
 
-    # ── Pipeline diagram ───────────────────────────────────────
+    # ── Simple pipeline diagram (always visible) ───────────────
     st.divider()
     components.html(
         """
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-        <script>mermaid.initialize({startOnLoad:true, theme:'base',
+        <script>mermaid.initialize({startOnLoad:true,theme:'base',
             themeVariables:{fontSize:'13px',fontFamily:'sans-serif'}});</script>
         <div class="mermaid">
         flowchart LR
@@ -1296,12 +1296,12 @@ def render_explorer_gif_grid(
         height=160,
     )
 
-    # ── Full pipeline + score formulas (collapsed by default) ──
-    with st.expander("🔍 Full pipeline diagram"):
+    # ── Full pipeline (collapsed) ──────────────────────────────
+    with st.expander("🔍 Full pipeline diagram →"):
         components.html(
             """
             <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-            <script>mermaid.initialize({startOnLoad:true, theme:'base',
+            <script>mermaid.initialize({startOnLoad:true,theme:'base',
                 themeVariables:{fontSize:'12px',fontFamily:'sans-serif'}});</script>
             <div class="mermaid">
             %%{init: {'theme':'base'}}%%
@@ -1362,18 +1362,122 @@ def render_explorer_gif_grid(
             height=500,
         )
 
-    with st.expander("🔴 Risk Score Logic"):
-        st.markdown("Risk ≈ **Time × Severity × Exposure**\n\n| Dimension | Metric |\n|---|---|\n| Time margin | `min_ttc_s` |\n| Severity | `max_closing_speed_mps` |\n| Exposure | `num_ttc_below_3s / below_1_5s` |")
-        st.code("risk = 0.5 * ttc_component\n     + 0.3 * closing_component\n     + 0.2 * breach_component\n\nclosing = min(1.0, closing_speed / 15.0)\nbreach  = min(1.0, (below_3s + 2*below_1.5s) / 20.0)", language="python")
+    # ── How Scores Are Calculated (collapsed, 4 nested HTML details) ──
+    with st.expander("� How Scores Are Calculated →"):
+        st.markdown(
+            """
+<details>
+<summary><strong>🔴 Risk Score Logic</strong></summary>
 
-    with st.expander("🔵 Complexity Score Logic"):
-        st.code("complexity = (\n  0.30 * min(1.0, 10.0 / (min_dist + 0.1))   # proximity\n+ 0.25 * min(1.0, close_interactions / 50.0)  # density\n+ 0.20 * min(1.0, sdc_max_speed / 25.0)       # speed\n+ 0.15 * min(1.0, unique_actors / 10.0)        # diversity\n+ 0.10 * min(1.0, sdc_distance / 200.0)        # coverage\n)", language="python")
+**Risk ≈ Time × Severity × Exposure**
 
-    with st.expander("🟢 Comfort Score Logic"):
-        st.code("comfort = (0.25 * accel_component\n         + 0.30 * decel_component\n         + 0.30 * jerk_component\n         + 0.15 * heading_component)\n# thresholds: accel/decel > 4 m/s²  |  jerk > 10 m/s³  |  heading_rate > 0.8 rad/s", language="python")
+| Dimension | Metric |
+|---|---|
+| Time margin | `min_ttc_s` |
+| Severity | `max_closing_speed_mps` |
+| Exposure | `num_ttc_below_3s / below_1_5s` |
 
-    with st.expander("📖 Metric Glossary"):
-        st.markdown("| Metric | Definition |\n|---|---|\n| `min_ttc_s` | Min Time-to-Collision across all actor/timestep pairs |\n| `max_closing_speed_mps` | Max closing speed while approaching |\n| `num_ttc_below_3s` | Actor/timestep pairs where TTC < 3 s |\n| `num_ttc_below_1_5s` | Actor/timestep pairs where TTC < 1.5 s |\n| `min_sdc_distance_m` | Closest any actor got to the SDC |\n| `sdc_max_speed_mps` | SDC peak speed in scenario |\n| `num_tracks` | Total actor tracks in scenario |\n| `risk_score` | Composite safety risk [0–1] |\n| `comfort_score` | Ride abruptness [0–1] |\n| `scenario_interest_score` | Interaction complexity [0–1] |")
+```python
+risk = 0.5 * ttc_component
+     + 0.3 * closing_component
+     + 0.2 * breach_component
+
+closing = min(1.0, closing_speed / 15.0)
+breach  = min(1.0, (below_3s + 2*below_1.5s) / 20.0)
+```
+</details>
+
+<details>
+<summary><strong>🔵 Complexity Score Logic</strong></summary>
+
+```python
+complexity = (
+  0.30 * min(1.0, 10.0 / (min_dist + 0.1))   # proximity
++ 0.25 * min(1.0, close_interactions / 50.0)  # density
++ 0.20 * min(1.0, sdc_max_speed / 25.0)       # speed
++ 0.15 * min(1.0, unique_actors / 10.0)        # diversity
++ 0.10 * min(1.0, sdc_distance / 200.0)        # coverage
+)
+```
+</details>
+
+<details>
+<summary><strong>🟢 Comfort Score Logic</strong></summary>
+
+```python
+comfort = (0.25 * accel_component
+         + 0.30 * decel_component
+         + 0.30 * jerk_component
+         + 0.15 * heading_component)
+# accel/decel > 4 m/s²  |  jerk > 10 m/s³  |  heading_rate > 0.8 rad/s
+```
+</details>
+
+<details>
+<summary><strong>📖 Metric Glossary</strong></summary>
+
+| Metric | Definition |
+|---|---|
+| `min_ttc_s` | Min Time-to-Collision across all actor/timestep pairs |
+| `max_closing_speed_mps` | Max closing speed while approaching |
+| `num_ttc_below_3s` | Actor/timestep pairs where TTC < 3 s |
+| `num_ttc_below_1_5s` | Actor/timestep pairs where TTC < 1.5 s |
+| `min_sdc_distance_m` | Closest any actor got to the SDC |
+| `sdc_max_speed_mps` | SDC peak speed in scenario |
+| `num_tracks` | Total actor tracks in scenario |
+| `risk_score` | Composite safety risk [0–1] |
+| `comfort_score` | Ride abruptness [0–1] |
+| `scenario_interest_score` | Interaction complexity [0–1] |
+</details>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # ── Risk vs Complexity scatter ─────────────────────────────
+    st.divider()
+    st.markdown("#### Risk vs. Complexity")
+    st.caption("Each point is a scenario. High-risk + high-complexity scenarios (top-right) are the most critical to review.")
+
+    plot_df = merged.dropna(subset=["risk_score", "scenario_interest_score"]).copy()
+    if not plot_df.empty:
+        fig, ax = plt.subplots(figsize=(7, 4))
+        fig.patch.set_facecolor("#0e1117")
+        ax.set_facecolor("#0e1117")
+
+        colors = [
+            "#e53935" if r >= 0.6 else "#fb8c00" if r >= 0.3 else "#43a047"
+            for r in plot_df["risk_score"]
+        ]
+        sizes = [60 + 120 * r for r in plot_df["risk_score"]]
+
+        ax.scatter(
+            plot_df["scenario_interest_score"],
+            plot_df["risk_score"],
+            c=colors, s=sizes, alpha=0.85, edgecolors="#ffffff22", linewidths=0.5,
+        )
+
+        for _, row in plot_df.nlargest(3, "risk_score").iterrows():
+            ax.annotate(
+                row["scenario_id"][:8],
+                (row["scenario_interest_score"], row["risk_score"]),
+                textcoords="offset points", xytext=(6, 4),
+                fontsize=7, color="#ffffffaa",
+            )
+
+        ax.set_xlabel("Complexity Score", color="#aaaaaa", fontsize=10)
+        ax.set_ylabel("Risk Score", color="#aaaaaa", fontsize=10)
+        ax.tick_params(colors="#888888")
+        for spine in ax.spines.values():
+            spine.set_edgecolor("#333333")
+        ax.axhline(0.6, color="#e5393555", linewidth=1, linestyle="--")
+        ax.axvline(0.6, color="#e5393555", linewidth=1, linestyle="--")
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
+        fig.tight_layout()
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+    else:
+        st.info("Not enough data to render Risk vs. Complexity chart.")
 
 
 # ============================================================
