@@ -58,9 +58,11 @@ def build_merged_table(
         df = df.merge(interaction_metrics[cols], on="scenario_id", how="left")
 
     if risk_metrics is not None and "risk_score" in risk_metrics.columns:
-        df = df.merge(
-            risk_metrics[["scenario_id", "risk_score"]], on="scenario_id", how="left"
-        )
+        risk_cols = ["scenario_id", "risk_score"]
+        for c in ["min_ttc_s", "max_closing_speed_mps", "num_ttc_below_3s", "num_ttc_below_1_5s"]:
+            if c in risk_metrics.columns:
+                risk_cols.append(c)
+        df = df.merge(risk_metrics[risk_cols], on="scenario_id", how="left")
 
     if comfort_metrics is not None and "comfort_score" in comfort_metrics.columns:
         comfort_cols = ["scenario_id", "comfort_score"]
@@ -71,6 +73,33 @@ def build_merged_table(
         df = df.merge(comfort_metrics[comfort_cols], on="scenario_id", how="left")
 
     return df
+
+
+def compute_live_risk_score(row: pd.Series, ttc_warning: float, ttc_critical: float) -> dict:
+    """Recompute risk score in the UI layer using current slider thresholds."""
+    min_ttc = row.get("min_ttc_s", None)
+    max_closing = row.get("max_closing_speed_mps", 0.0) or 0.0
+    num_below_3s = row.get("num_ttc_below_3s", 0) or 0
+    num_below_1_5s = row.get("num_ttc_below_1_5s", 0) or 0
+
+    # TTC component: linear scale from warning → critical
+    if pd.isna(min_ttc) or ttc_warning <= ttc_critical:
+        ttc_component = 0.0
+    else:
+        ttc_component = max(0.0, min(1.0,
+            (ttc_warning - min_ttc) / (ttc_warning - ttc_critical)
+        ))
+
+    closing_component = min(1.0, float(max_closing) / 15.0)
+    breach_component = min(1.0, (float(num_below_3s) + 2.0 * float(num_below_1_5s)) / 20.0)
+
+    risk_score = 0.5 * ttc_component + 0.3 * closing_component + 0.2 * breach_component
+    return {
+        "ttc_component": round(ttc_component, 3),
+        "closing_component": round(closing_component, 3),
+        "breach_component": round(breach_component, 3),
+        "risk_score": round(risk_score, 3),
+    }
 
 
 def has_risk_score(df: pd.DataFrame) -> bool:
@@ -140,30 +169,20 @@ def render_top_scenarios_table(merged: pd.DataFrame):
     st.header("2 — Top Scenarios")
 
     sort_col = risk_col(merged)
-    display_cols = ["scenario_id"]
 
-    if has_risk_score(merged):
-        display_cols.append("risk_score")
-    if "scenario_interest_score" in merged.columns:
-        display_cols.append("scenario_interest_score")
-    
-    # Add risk detail columns if available
-    for c in ["min_ttc_s", "max_closing_speed_mps", "num_ttc_below_3s"]:
-        if c in merged.columns:
-            display_cols.append(c)
-    
-    # Add comfort score if available
-    if has_comfort_score(merged):
-        display_cols.append("comfort_score")
-    
-    for c in [
-        "min_sdc_distance_m",
-        "num_close_interactions",
+    # Full ordered column list — include only columns that exist
+    preferred = [
+        "scenario_id",
+        "risk_score",
+        "min_ttc_s",
+        "max_closing_speed_mps",
+        "num_ttc_below_3s",
+        "num_ttc_below_1_5s",
+        "scenario_interest_score",
+        "comfort_score",
         "num_tracks",
-        "data_source",
-    ]:
-        if c in merged.columns:
-            display_cols.append(c)
+    ]
+    display_cols = [c for c in preferred if c in merged.columns]
 
     sorted_df = merged.sort_values(sort_col, ascending=False)
     st.dataframe(sorted_df[display_cols], use_container_width=True, hide_index=True)
@@ -175,7 +194,10 @@ def render_top_scenarios_table(merged: pd.DataFrame):
         )
     else:
         st.caption(
-            "✅ Real risk score computed from TTC, closing speed, and TTC threshold breaches"
+            "Sorted by `risk_score` descending · "
+            "TTC = Time-to-Collision (seconds) · "
+            "closing speed in m/s · "
+            "breaches = timesteps below TTC threshold"
         )
 
 
@@ -221,16 +243,19 @@ def render_risk_overview(merged: pd.DataFrame, ttc_warning: float, ttc_critical:
         "**Purpose** = understand overall safety/risk profile of the scenario set"
     )
 
-    # Add note about real risk metrics
     if has_risk_score(merged):
-        st.info(
-            "✅ **Real risk metrics** are now computed from Time-to-Collision (TTC), "
-            "closing speed, and TTC threshold breaches. "
-            "Lower TTC and higher closing speed increase the risk score."
-        )
-        st.caption(
-            f"**Risk interpretation:** Scenarios are considered concerning when TTC < {ttc_warning:.1f}s (warning) "
-            f"or TTC < {ttc_critical:.1f}s (critical). Adjust thresholds in the sidebar to change interpretation."
+        st.warning(
+            "**Important — how to read risk_score:**\n\n"
+            "TTC thresholds classify individual interaction moments (safe / warning / critical). "
+            "`risk_score` is a **scenario-level summary** that combines three independent dimensions:\n\n"
+            "- **Time margin** → min TTC across all actor-timestep pairs\n"
+            "- **Severity** → maximum closing speed\n"
+            "- **Exposure** → count of timesteps where TTC was below threshold\n\n"
+            "A scenario with `risk_score = 1.0` does not simply mean \"critical TTC\". "
+            "It means the combined risk signals (TTC + closing speed + breaches) reached the maximum level "
+            "under the current formula.\n\n"
+            f"Current thresholds: warning < **{ttc_warning:.1f}s**, critical < **{ttc_critical:.1f}s**. "
+            "Adjust in the sidebar to change interpretation."
         )
 
 
@@ -440,86 +465,281 @@ and edge cases from the scenario set.
 
 def render_score_calculation_logic():
     st.header("8 — How Scores Are Calculated")
-    
+
     # Risk Score Logic
     with st.expander("🔴 Risk Score Logic"):
-        st.markdown("""
-**Plain English:** Risk measures how concerning a scenario appears based on Time-to-Collision (TTC), 
-closing speed, and the number of dangerous close encounters. Lower TTC and higher closing speeds 
-indicate higher collision risk.
-        """)
-        
-        st.code("""
+        st.markdown(
+            "Collision risk is modelled across **three independent dimensions**:\n\n"
+            "| Dimension | Metric | Meaning |\n"
+            "|-----------|--------|---------|\n"
+            "| **Time margin** | `min_ttc_s` | How close in time was the nearest approach? |\n"
+            "| **Severity** | `max_closing_speed_mps` | How fast were objects converging? |\n"
+            "| **Exposure** | `num_ttc_below_3s / num_ttc_below_1_5s` | How often did TTC breach thresholds? |\n\n"
+            "Conceptual model: **Risk ≈ Time × Severity × Exposure**"
+        )
+
+        st.code("""\
 risk_score = 0.5 * ttc_component + 0.3 * closing_component + 0.2 * breach_component
 
-ttc_component = min(1.0, 5.0 / max(min_ttc_s, 0.1))
+# TTC component — linear between warning and critical thresholds (set in sidebar)
+if ttc_warning <= ttc_critical:
+    ttc_component = 0.0
+else:
+    ttc_component = max(0.0, min(1.0,
+        (ttc_warning - min_ttc_s) / (ttc_warning - ttc_critical)
+    ))
+# TTC >= warning  → component = 0  (safe)
+# TTC <= critical → component = 1  (critical)
+# between them    → linear interpolation
+
 closing_component = min(1.0, max_closing_speed_mps / 15.0)
-breach_component = min(1.0, (num_ttc_below_3s + 2 * num_ttc_below_1_5s) / 20.0)
-        """, language="python")
-        
-        st.markdown("""
-**Main Assumptions:**
-- TTC calculated when objects are approaching (positive closing speed)
-- TTC < 3 seconds is concerning, TTC < 1.5 seconds is critical
-- Closing speeds > 15 m/s (34 mph) are high risk
-- More TTC breaches indicate higher cumulative risk
-- Components normalized to [0, 1] range
-        """)
-    
+breach_component  = min(1.0, (num_ttc_below_3s + 2 * num_ttc_below_1_5s) / 20.0)
+""", language="python")
+
+        st.markdown(
+            "**Main Assumptions:**\n"
+            "- TTC is only computed when closing speed > 0 (objects approaching)\n"
+            "- Closing speeds > 15 m/s (≈34 mph) saturate the severity component\n"
+            "- The breach normalizer (20) assumes up to 10 warning events or 10 critical events in a scenario\n"
+            "- The **stored** `risk_score` uses fixed thresholds (3 s / 1.5 s); "
+            "the **live** score in Scenario Review uses sidebar sliders"
+        )
+
     # Complexity Score Logic
     with st.expander("🔵 Complexity Score Logic"):
-        st.markdown("""
-**Plain English:** Complexity measures how many interactions and nearby actors exist in a scenario. 
-More close interactions and more actors generally indicate a more complex driving environment.
-        """)
-        
-        st.code("""
-# Current proxy: scenario_interest_score from interaction_metrics
+        st.markdown(
+            "Complexity proxies how demanding the driving environment is for the SDC."
+        )
+
+        st.code("""\
 scenario_interest_score = (
-    0.30 * min(1.0, 10.0 / (min_sdc_distance_m + 0.1))
-  + 0.25 * min(1.0, num_close_interactions / 50.0)
-  + 0.20 * min(1.0, sdc_max_speed_mps / 25.0)
-  + 0.15 * min(1.0, num_unique_close_actors / 10.0)
-  + 0.10 * min(1.0, sdc_distance_traveled_m / 200.0)
+    0.30 * min(1.0, 10.0 / (min_sdc_distance_m + 0.1))   # proximity
+  + 0.25 * min(1.0, num_close_interactions / 50.0)        # interaction count
+  + 0.20 * min(1.0, sdc_max_speed_mps / 25.0)            # SDC speed
+  + 0.15 * min(1.0, num_unique_close_actors / 10.0)       # actor diversity
+  + 0.10 * min(1.0, sdc_distance_traveled_m / 200.0)      # coverage
 )
-        """, language="python")
-        
-        st.markdown("""
-**Main Assumptions:**
-- Close interactions defined as actors within 5 meters of SDC
-- More close interactions = higher complexity
-- More unique actors nearby = higher complexity
-- Higher SDC speeds increase perceived complexity
-- Components normalized to [0, 1] range
-- Currently uses interaction_score as proxy for complexity
-        """)
-    
+""", language="python")
+
+        st.markdown(
+            "**Main Assumptions:**\n"
+            "- 'Close' interaction baseline = 5 m (adjustable via sidebar)\n"
+            "- More unique actors nearby = higher complexity\n"
+            "- Components normalized to [0, 1]\n"
+            "- Currently used as proxy; a dedicated complexity score is planned"
+        )
+
     # Comfort Score Logic
     with st.expander("🟢 Comfort Score Logic"):
-        st.markdown("""
-**Plain English:** Comfort measures ride quality through acceleration, jerk, and heading rate. 
-Higher acceleration and jerk indicate less comfortable (more abrupt) driving experiences.
-        """)
-        
-        st.code("""
-comfort_score = 0.25 * accel_component + 0.30 * decel_component + 0.30 * jerk_component + 0.15 * heading_component
+        st.markdown(
+            "Comfort measures ride abruptness from SDC motion only. "
+            "**Higher score = less comfortable.**"
+        )
 
-accel_component = min(1.0, max_acceleration_mps2 / 4.0)
-decel_component = min(1.0, max_deceleration_mps2 / 4.0)
-jerk_component = min(1.0, max_jerk_mps3 / 10.0)
+        st.code("""\
+comfort_score = 0.25*accel_component + 0.30*decel_component + 0.30*jerk_component + 0.15*heading_component
+
+accel_component   = min(1.0, max_acceleration_mps2 / 4.0)
+decel_component   = min(1.0, max_deceleration_mps2 / 4.0)
+jerk_component    = min(1.0, max_jerk_mps3 / 10.0)
 heading_component = min(1.0, max_heading_rate_radps / 0.8)
-        """, language="python")
-        
-        st.markdown("""
-**Main Assumptions:**
-- Comfort computed from SDC motion only (acceleration, jerk, heading rate)
-- Acceleration/deceleration > 4 m/s² considered uncomfortable
-- Jerk > 10 m/s³ considered uncomfortable
-- Heading rate > 0.8 rad/s considered uncomfortable
-- Higher comfort scores = less comfortable motion
-- Components normalized to [0, 1] range
-- dt = 0.1s (Waymo 10 Hz scenario rate)
-        """)
+
+# acceleration[t] = (speed[t] - speed[t-1]) / dt      dt = 0.1 s
+# jerk[t]         = (acceleration[t] - acceleration[t-1]) / dt
+# heading_rate[t] = wrapped_angle_diff(heading[t], heading[t-1]) / dt
+""", language="python")
+
+        st.markdown(
+            "**Main Assumptions:**\n"
+            "- Accel/decel > 4 m/s² is uncomfortable\n"
+            "- Jerk > 10 m/s³ is uncomfortable\n"
+            "- Heading rate > 0.8 rad/s is uncomfortable\n"
+            "- dt = 0.1 s (Waymo 10 Hz scenario rate)\n"
+            "- SDC motion only — other actors excluded"
+        )
+
+    # Metric Glossary
+    with st.expander("📖 Metric Glossary"):
+        st.markdown(
+            "| Metric | Definition |\n"
+            "|--------|------------|\n"
+            "| `scenario_id` | Unique identifier for a Waymo scenario (hex string) |\n"
+            "| `min_ttc_s` | Minimum Time-to-Collision observed across all actor/timestep pairs (seconds) |\n"
+            "| `max_closing_speed_mps` | Maximum closing speed across all approaching actor/timestep pairs (m/s) |\n"
+            "| `num_ttc_below_3s` | Number of actor/timestep pairs where TTC < 3 seconds |\n"
+            "| `num_ttc_below_1_5s` | Number of actor/timestep pairs where TTC < 1.5 seconds |\n"
+            "| `sdc_max_speed_mps` | Maximum speed of the SDC (self-driving car) during the scenario |\n"
+            "| `min_sdc_distance_m` | Minimum distance between SDC and any other actor during the scenario |\n"
+            "| `num_tracks` | Total number of actor tracks in the scenario |\n"
+            "| `comfort_score` | Composite ride-comfort abruptness score [0, 1]; higher = less comfortable |\n"
+            "| `risk_score` | Composite safety risk score [0, 1]; higher = more risk |\n"
+            "| `scenario_interest_score` | Composite complexity proxy [0, 1]; higher = more interaction density |"
+        )
+
+
+# ============================================================
+# SECTION 9 — SCENARIO REVIEW (ENGINEER MODE)
+# ============================================================
+
+def render_scenario_review(
+    merged: pd.DataFrame,
+    risk_metrics: pd.DataFrame | None,
+    comfort_metrics: pd.DataFrame | None,
+    ttc_warning: float,
+    ttc_critical: float,
+    interaction_distance: int,
+):
+    st.header("9 — Scenario Review (Engineer Mode)")
+    st.caption(
+        "Select a scenario to inspect its metrics and see how the risk score changes "
+        "under the current sidebar thresholds. Fleet View (sections 1–7) uses stored metrics. "
+        "This view recomputes scores live."
+    )
+
+    if risk_metrics is None or "risk_score" not in risk_metrics.columns:
+        st.info("Risk metrics not available. Run `python scripts/compute_risk_metrics.py` first.")
+        return
+
+    # Scenario selector — sorted by stored risk_score
+    sorted_ids = (
+        risk_metrics.sort_values("risk_score", ascending=False)["scenario_id"].tolist()
+    )
+    selected_id = st.selectbox("Select Scenario", sorted_ids, index=0)
+
+    # Get this scenario's rows
+    risk_row = risk_metrics[risk_metrics["scenario_id"] == selected_id]
+    merged_row = merged[merged["scenario_id"] == selected_id]
+
+    if risk_row.empty:
+        st.warning(f"No risk data found for scenario `{selected_id}`.")
+        return
+
+    risk_row = risk_row.iloc[0]
+    merged_row = merged_row.iloc[0] if not merged_row.empty else pd.Series(dtype=object)
+
+    # Live recomputed score
+    live = compute_live_risk_score(risk_row, ttc_warning, ttc_critical)
+
+    # TTC zone classification
+    min_ttc = risk_row.get("min_ttc_s", None)
+    if pd.isna(min_ttc):
+        ttc_zone = "Unknown"
+        zone_color = "gray"
+    elif min_ttc >= ttc_warning:
+        ttc_zone = "✅ Safe"
+        zone_color = "green"
+    elif min_ttc > ttc_critical:
+        ttc_zone = "⚠️ Warning"
+        zone_color = "orange"
+    else:
+        ttc_zone = "🔴 Critical"
+        zone_color = "red"
+
+    # ---- two-column layout ----
+    left, right = st.columns([1, 2])
+
+    with left:
+        st.subheader("Controls & Scores")
+
+        # Stored vs live scores
+        st.markdown("**Stored risk score** (from parquet)")
+        stored_score = float(risk_row.get("risk_score", 0.0))
+        st.metric("risk_score (stored)", f"{stored_score:.3f}")
+
+        st.markdown("**Live review score** (recomputed with current thresholds)")
+        st.metric(
+            "risk_score (live)",
+            f"{live['risk_score']:.3f}",
+            delta=f"{live['risk_score'] - stored_score:+.3f} vs stored",
+        )
+
+        st.divider()
+
+        # Risk breakdown table
+        st.markdown("**Risk component breakdown**")
+        breakdown_df = pd.DataFrame([
+            {"Component": "TTC (weight 0.5)",           "Value": live["ttc_component"]},
+            {"Component": "Closing speed (weight 0.3)", "Value": live["closing_component"]},
+            {"Component": "Breaches (weight 0.2)",      "Value": live["breach_component"]},
+            {"Component": "→ Live risk_score",          "Value": live["risk_score"]},
+        ])
+        st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
+
+        # Score comparison bar chart
+        fig, ax = plt.subplots(figsize=(4, 2.5))
+        bars = ax.barh(
+            ["Stored", "Live"],
+            [stored_score, live["risk_score"]],
+            color=["#888", "#d94f4f"],
+            edgecolor="white",
+        )
+        ax.set_xlim(0, 1.05)
+        ax.set_xlabel("Risk Score")
+        ax.set_title("Stored vs Live Score")
+        ax.bar_label(bars, fmt="%.3f", padding=3)
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+
+    with right:
+        st.subheader("Scenario Summary")
+
+        # Metric cards in columns
+        c1, c2, c3 = st.columns(3)
+        c1.metric("min_ttc_s", f"{min_ttc:.2f}s" if not pd.isna(min_ttc) else "N/A")
+        max_closing = risk_row.get("max_closing_speed_mps", 0.0)
+        c2.metric("max_closing_speed", f"{max_closing:.1f} m/s")
+        num_tracks = merged_row.get("num_tracks", "N/A")
+        c3.metric("num_tracks", int(num_tracks) if not pd.isna(num_tracks) else "N/A")
+
+        c4, c5, c6 = st.columns(3)
+        c4.metric("num_ttc_below_3s", int(risk_row.get("num_ttc_below_3s", 0)))
+        c5.metric("num_ttc_below_1_5s", int(risk_row.get("num_ttc_below_1_5s", 0)))
+        # Comfort score if available
+        comfort_score_val = merged_row.get("comfort_score", None)
+        c6.metric(
+            "comfort_score",
+            f"{comfort_score_val:.3f}" if comfort_score_val is not None and not pd.isna(comfort_score_val) else "N/A"
+        )
+
+        # TTC zone classification
+        st.markdown(f"**TTC zone (current thresholds):** {ttc_zone}")
+        st.caption(
+            f"TTC zone based on: warning < {ttc_warning:.1f}s, critical < {ttc_critical:.1f}s"
+        )
+
+        st.divider()
+
+        # TTC component breakdown visualisation
+        st.markdown("**Risk component bars (live)**")
+        fig2, ax2 = plt.subplots(figsize=(6, 2.5))
+        components = ["TTC\n(×0.5)", "Closing\n(×0.3)", "Breaches\n(×0.2)"]
+        values = [live["ttc_component"], live["closing_component"], live["breach_component"]]
+        weighted = [0.5 * live["ttc_component"], 0.3 * live["closing_component"], 0.2 * live["breach_component"]]
+        x = np.arange(len(components))
+        width = 0.35
+        bars_raw = ax2.bar(x - width/2, values, width, label="Raw component", color="#aac4e0", edgecolor="white")
+        bars_wgt = ax2.bar(x + width/2, weighted, width, label="Weighted contribution", color="#d94f4f", edgecolor="white")
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(components, fontsize=9)
+        ax2.set_ylim(0, 1.05)
+        ax2.set_ylabel("Value")
+        ax2.set_title("Live Component Breakdown")
+        ax2.legend(fontsize=8)
+        ax2.bar_label(bars_raw, fmt="%.2f", padding=2, fontsize=7)
+        ax2.bar_label(bars_wgt, fmt="%.2f", padding=2, fontsize=7)
+        plt.tight_layout()
+        st.pyplot(fig2)
+        plt.close(fig2)
+
+        # Complexity summary
+        if "num_close_interactions" in merged_row.index:
+            adj = float(merged_row.get("num_close_interactions", 0)) * (interaction_distance / 5.0)
+            st.markdown(
+                f"**Complexity:** {merged_row.get('num_close_interactions', 'N/A')} stored close interactions "
+                f"→ **{adj:.0f} adjusted** at {interaction_distance}m · "
+                f"Complexity proxy: {merged_row.get('scenario_interest_score', 'N/A'):.3f}"
+            )
 
 
 # ============================================================
@@ -630,6 +850,8 @@ def main():
     render_interpretation_notes()
     st.divider()
     render_score_calculation_logic()
+    st.divider()
+    render_scenario_review(merged, risk_metrics, comfort_metrics, ttc_warning, ttc_critical, interaction_distance)
 
 
 if __name__ == "__main__":
