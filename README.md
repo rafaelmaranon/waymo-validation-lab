@@ -79,6 +79,7 @@ protoc --proto_path=proto --python_out=proto \
 # Run pipeline
 python scripts/waymo_real_parser.py
 python scripts/compute_basic_metrics.py
+python scripts/compute_interaction_metrics.py
 python scripts/validate_outputs.py
 
 # Generate visualizations
@@ -106,9 +107,10 @@ waymo-validation-lab/
 └── scripts/
     ├── waymo_real_parser.py         # Real protobuf parser (primary)
     ├── decode_one_scenario.py       # Proof-of-work single decode
+    ├── compute_basic_metrics.py     # Calculate basic scenario metrics
+    ├── compute_interaction_metrics.py # Calculate SDC interaction metrics
     ├── plot_first_scenario.py       # Generate trajectory plot
     ├── animate_first_scenario.py    # Create animation GIF
-    ├── compute_basic_metrics.py     # Calculate scenario metrics
     └── validate_outputs.py          # Validate data consistency
 ```
 
@@ -136,6 +138,13 @@ waymo-validation-lab/
 - num_tracks, num_valid_state_rows
 - min_x, max_x, min_y, max_y
 - approx_num_moving_tracks, avg_speed_mps, max_speed_mps
+
+**interaction_metrics**
+- scenario_id, min_sdc_distance_m, mean_min_sdc_distance_m
+- num_close_interactions, num_timesteps_with_close_actor
+- closest_actor_type, closest_actor_track_id
+- sdc_avg_speed_mps, sdc_max_speed_mps, sdc_distance_traveled_m
+- num_unique_close_actors, scenario_interest_score
 
 ## ⚠️ Environment Notes
 
