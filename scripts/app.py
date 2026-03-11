@@ -8,6 +8,8 @@ Summarizes the scenario set using risk, complexity, and comfort metrics.
 Run with: streamlit run scripts/app.py
 """
 
+import io
+import time
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -985,6 +987,235 @@ def render_scenario_playback(
 
 
 # ============================================================
+# SECTION 11 — MINI PLAYBACK PROTOTYPE
+# ============================================================
+
+def _draw_mini_scene(ax, sc_states, frame, sdc_track_id, top_risk_track_id):
+    """Draw one frame of the compact scene onto ax. Reusable for grid tiles."""
+    TYPE_COLORS = {"VEHICLE": "#4a9eca", "PEDESTRIAN": "#f4a261", "CYCLIST": "#52b788"}
+    SDC_COLOR   = "#e63946"
+    RISK_COLOR  = "#ff8c42"
+
+    x_all, y_all = sc_states["x"], sc_states["y"]
+    x_rng = max(x_all.max() - x_all.min(), 20)
+    y_rng = max(y_all.max() - y_all.min(), 20)
+    ax.set_xlim(x_all.min() - x_rng * 0.11 - 4, x_all.max() + x_rng * 0.11 + 4)
+    ax.set_ylim(y_all.min() - y_rng * 0.11 - 4, y_all.max() + y_rng * 0.11 + 4)
+
+    for track_id, group in sc_states.groupby("track_id"):
+        history = group[group["timestep"] <= frame].sort_values("timestep")
+        if history.empty:
+            continue
+
+        obj_type = str(group["object_type"].iloc[0]).upper() if "object_type" in group.columns else "VEHICLE"
+        is_sdc      = track_id == sdc_track_id
+        is_top_risk = track_id == top_risk_track_id
+
+        if is_sdc:
+            color, lw, dot_s, marker, z = SDC_COLOR, 1.8, 90, "*", 10
+        elif is_top_risk:
+            color, lw, dot_s, marker, z = RISK_COLOR, 1.1, 28, "o", 7
+        else:
+            color, lw, dot_s, marker, z = TYPE_COLORS.get(obj_type, "#5555aa"), 0.65, 16, "o", 5
+
+        # Fading trail (last 25 steps)
+        trail = history.tail(25)
+        n = len(trail)
+        base_a = 0.9 if is_sdc else (0.65 if is_top_risk else 0.28)
+        if n > 1:
+            for i in range(1, n):
+                ax.plot(
+                    trail["x"].values[i - 1 : i + 1],
+                    trail["y"].values[i - 1 : i + 1],
+                    color=color, alpha=base_a * (i / n) ** 0.5,
+                    linewidth=lw, solid_capstyle="round", zorder=z - 1,
+                )
+
+        cur = history.iloc[-1]
+        ax.scatter(
+            cur["x"], cur["y"], s=dot_s, c=color, marker=marker,
+            edgecolors="white" if is_sdc else "none",
+            linewidths=0.7 if is_sdc else 0, zorder=z,
+        )
+
+        # Heading arrow
+        if "heading_rad" in cur.index and not pd.isna(cur["heading_rad"]):
+            alen = 3.5 if is_sdc else 2.0
+            dx = float(np.cos(cur["heading_rad"])) * alen
+            dy = float(np.sin(cur["heading_rad"])) * alen
+            ax.annotate(
+                "", xy=(cur["x"] + dx, cur["y"] + dy), xytext=(cur["x"], cur["y"]),
+                arrowprops=dict(arrowstyle="-|>", color=color,
+                                lw=1.1 if is_sdc else 0.55, alpha=0.9),
+                zorder=z + 1,
+            )
+
+
+def render_mini_playback_prototype(
+    merged: pd.DataFrame,
+    states_df: pd.DataFrame | None,
+    tracks_df: pd.DataFrame | None,
+    selected_id: str | None,
+):
+    st.header("11 — Mini Playback Prototype")
+    st.caption(
+        "Compact scenario tile — proof-of-concept before building a grid. "
+        "Use **▶ / ⏸** to autoplay or **← →** to step manually."
+    )
+
+    if selected_id is None or states_df is None or tracks_df is None:
+        st.info("Select a scenario from the sidebar and ensure silver tables are loaded.")
+        return
+
+    sc_states = states_df[
+        (states_df["scenario_id"] == selected_id) & (states_df["valid"] == True)
+    ].copy()
+    sc_tracks = tracks_df[tracks_df["scenario_id"] == selected_id].copy()
+
+    if sc_states.empty:
+        st.info("No trajectory data for this scenario.")
+        return
+
+    min_t = int(sc_states["timestep"].min())
+    max_t = int(sc_states["timestep"].max())
+
+    # ---- session state: reset when scenario changes ----
+    if st.session_state.get("mini_scenario") != selected_id:
+        st.session_state.mini_frame   = min_t
+        st.session_state.mini_playing = False
+        st.session_state.mini_scenario = selected_id
+
+    frame = int(st.session_state.mini_frame)
+
+    # ---- Identify SDC ----
+    sdc_rows     = sc_tracks[sc_tracks["is_sdc"] == True]
+    sdc_track_id = sdc_rows.iloc[0]["track_id"] if not sdc_rows.empty else None
+
+    # ---- Top-risk actor = closest to SDC at current frame ----
+    top_risk_track_id = None
+    if sdc_track_id is not None:
+        sdc_now = sc_states[(sc_states["track_id"] == sdc_track_id) & (sc_states["timestep"] == frame)]
+        if not sdc_now.empty:
+            sx, sy   = sdc_now.iloc[0]["x"], sdc_now.iloc[0]["y"]
+            others   = sc_states[(sc_states["track_id"] != sdc_track_id) & (sc_states["timestep"] == frame)]
+            if not others.empty:
+                dists = np.sqrt((others["x"] - sx) ** 2 + (others["y"] - sy) ** 2)
+                top_risk_track_id = others.loc[dists.idxmin(), "track_id"]
+
+    # ---- Metrics from merged ----
+    mrow = merged[merged["scenario_id"] == selected_id]
+    risk_score = mrow["risk_score"].iloc[0]   if not mrow.empty and "risk_score"  in mrow.columns else None
+    min_ttc    = mrow["min_ttc_s"].iloc[0]    if not mrow.empty and "min_ttc_s"   in mrow.columns else None
+    num_tracks = mrow["num_tracks"].iloc[0]   if not mrow.empty else None
+
+    # ---- Card: narrow centre column ----
+    _, card_col, _ = st.columns([1, 1.2, 1])
+    with card_col:
+        # Scenario ID header row
+        progress_pct = (frame - min_t) / max(max_t - min_t, 1)
+        st.markdown(
+            f"<div style='font-family:monospace;font-size:11px;color:#7777aa;"
+            f"letter-spacing:0.04em;margin-bottom:3px;'>"
+            f"{selected_id[:16]}"
+            f"<span style='float:right;color:#444466;'>{frame:03d}/{max_t:03d}</span>"
+            f"</div>"
+            f"<div style='height:2px;background:linear-gradient(to right,#e63946 {progress_pct*100:.0f}%,#252540 0%);border-radius:1px;margin-bottom:4px;'></div>",
+            unsafe_allow_html=True,
+        )
+
+        # ---- Compact dark scene figure ----
+        _MINI_DARK = {
+            "figure.facecolor": "#12121e", "axes.facecolor": "#1a1a2e",
+            "axes.edgecolor":   "#252540", "axes.labelcolor": "#444466",
+            "xtick.color": "#333355",      "ytick.color":     "#333355",
+            "grid.color":  "#1e1e38",      "grid.linewidth":  0.4,
+            "text.color":  "#888899",      "font.size":       7,
+        }
+        plt.rcParams.update(_MINI_DARK)
+
+        fig, ax = plt.subplots(figsize=(3.8, 3.8))
+        fig.patch.set_facecolor("#12121e")
+
+        _draw_mini_scene(ax, sc_states, frame, sdc_track_id, top_risk_track_id)
+
+        # Frame badge (tiny, inside plot)
+        ax.text(
+            0.03, 0.97, f"t={frame:03d}  {frame * 0.1:.1f}s",
+            transform=ax.transAxes, fontsize=6, color="#666688", va="top",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor="#12121e", edgecolor="none", alpha=0.85),
+        )
+
+        ax.set_aspect("equal")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_edgecolor("#252540")
+            spine.set_linewidth(0.5)
+        ax.grid(True, alpha=0.25)
+        plt.tight_layout(pad=0.2)
+
+        # Render to bytes → st.image for exact fixed width
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=115,
+                    bbox_inches="tight", facecolor="#12121e")
+        buf.seek(0)
+        plt.close(fig)
+        plt.rcParams.update(plt.rcParamsDefault)
+
+        st.image(buf, width=370)
+
+        # One-line metrics
+        r_s  = f"{risk_score:.3f}" if risk_score is not None and not pd.isna(risk_score) else "—"
+        t_s  = f"{min_ttc:.2f}s"   if min_ttc    is not None and not pd.isna(min_ttc)    else "—"
+        trk  = str(int(num_tracks)) if num_tracks is not None and not pd.isna(num_tracks) else "—"
+        st.markdown(
+            f"<div style='font-size:11px;color:#666688;text-align:center;"
+            f"font-family:monospace;margin-top:2px;'>"
+            f"risk&nbsp;<b style='color:#e63946'>{r_s}</b>&nbsp;&nbsp;·&nbsp;&nbsp;"
+            f"ttc&nbsp;<b style='color:#f4a261'>{t_s}</b>&nbsp;&nbsp;·&nbsp;&nbsp;"
+            f"<b style='color:#4a9eca'>{trk}</b>&nbsp;tracks"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+        # ---- Controls row ----
+        b1, b2, b3, slider_col = st.columns([1, 1, 1, 4])
+        with b1:
+            if st.button("←", key="mini_prev", help="Previous frame"):
+                st.session_state.mini_frame   = max(min_t, frame - 1)
+                st.session_state.mini_playing = False
+                st.rerun()
+        with b2:
+            lbl = "⏸" if st.session_state.mini_playing else "▶"
+            if st.button(lbl, key="mini_play", help="Play / Pause"):
+                st.session_state.mini_playing = not st.session_state.mini_playing
+                st.rerun()
+        with b3:
+            if st.button("→", key="mini_next", help="Next frame"):
+                st.session_state.mini_frame   = min(max_t, frame + 1)
+                st.session_state.mini_playing = False
+                st.rerun()
+        with slider_col:
+            new_frame = st.slider(
+                "", min_value=min_t, max_value=max_t, value=frame,
+                key="mini_slider", label_visibility="collapsed",
+            )
+            if new_frame != frame:
+                st.session_state.mini_frame   = new_frame
+                st.session_state.mini_playing = False
+                st.rerun()
+
+    # ---- Autoplay loop ----
+    if st.session_state.mini_playing:
+        time.sleep(0.08)
+        next_f = st.session_state.mini_frame + 1
+        st.session_state.mini_frame = next_f if next_f <= max_t else min_t
+        st.rerun()
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -1118,6 +1349,8 @@ def main():
     render_scenario_review(merged, risk_metrics, comfort_metrics, ttc_warning, ttc_critical, interaction_distance, selected_scenario)
     st.divider()
     render_scenario_playback(selected_scenario, states_df, tracks_df)
+    st.divider()
+    render_mini_playback_prototype(merged, states_df, tracks_df, selected_scenario)
 
 
 if __name__ == "__main__":
