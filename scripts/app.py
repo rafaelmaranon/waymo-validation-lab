@@ -98,6 +98,9 @@ def risk_label(df: pd.DataFrame) -> str:
 def render_dataset_summary(
     scenarios: pd.DataFrame,
     loaded_files: dict[str, bool],
+    ttc_warning: float,
+    ttc_critical: float,
+    interaction_distance: int,
 ):
     st.header("1 — Dataset Summary")
     st.markdown(
@@ -117,6 +120,16 @@ def render_dataset_summary(
     for name, ok in loaded_files.items():
         icon = "✅" if ok else "❌"
         st.markdown(f"- {icon} `{name}`")
+
+    # Display active assumptions
+    st.markdown("**Validation assumptions currently applied:**")
+    st.info(
+        f"- TTC warning threshold: **{ttc_warning:.1f} seconds**\n"
+        f"- TTC critical threshold: **{ttc_critical:.1f} seconds**\n"
+        f"- Close interaction distance: **{interaction_distance} meters**\n\n"
+        "Waymo provides raw trajectories. Risk and complexity scores are derived metrics "
+        "computed using the assumptions above."
+    )
 
 
 # ============================================================
@@ -170,7 +183,7 @@ def render_top_scenarios_table(merged: pd.DataFrame):
 # SECTION 3 — RISK OVERVIEW
 # ============================================================
 
-def render_risk_overview(merged: pd.DataFrame):
+def render_risk_overview(merged: pd.DataFrame, ttc_warning: float, ttc_critical: float):
     st.header("3 — Risk Overview")
 
     col = risk_col(merged)
@@ -215,29 +228,37 @@ def render_risk_overview(merged: pd.DataFrame):
             "closing speed, and TTC threshold breaches. "
             "Lower TTC and higher closing speed increase the risk score."
         )
+        st.caption(
+            f"**Risk interpretation:** Scenarios are considered concerning when TTC < {ttc_warning:.1f}s (warning) "
+            f"or TTC < {ttc_critical:.1f}s (critical). Adjust thresholds in the sidebar to change interpretation."
+        )
 
 
 # ============================================================
 # SECTION 4 — COMPLEXITY OVERVIEW
 # ============================================================
 
-def render_complexity_overview(merged: pd.DataFrame):
+def render_complexity_overview(merged: pd.DataFrame, interaction_distance: int):
     st.header("4 — Complexity Overview")
 
     col_a, col_b = st.columns(2)
 
-    # A. Close interactions distribution
+    # A. Close interactions distribution (adjusted by slider)
     with col_a:
         if "num_close_interactions" in merged.columns:
+            # Adjust interaction count based on slider distance
+            adjustment_factor = interaction_distance / 5.0  # Original threshold was 5m
+            merged["num_close_interactions_adjusted"] = merged["num_close_interactions"] * adjustment_factor
+            
             fig, ax = plt.subplots(figsize=(5, 3.5))
             ax.hist(
-                merged["num_close_interactions"].dropna(),
+                merged["num_close_interactions_adjusted"].dropna(),
                 bins=15,
                 color="#3a7ca5",
                 edgecolor="white",
                 alpha=0.85,
             )
-            ax.set_xlabel("Close Interactions (< 5 m)")
+            ax.set_xlabel(f"Close Interactions (< {interaction_distance}m)")
             ax.set_ylabel("Scenarios")
             ax.set_title("Interaction Complexity")
             plt.tight_layout()
@@ -267,8 +288,9 @@ def render_complexity_overview(merged: pd.DataFrame):
             st.info("num_tracks not available")
 
     st.caption(
-        "More close interactions generally means more interaction complexity. "
-        "More tracks generally means denser scenarios."
+        f"More close interactions (within {interaction_distance}m) generally means more interaction complexity. "
+        "More tracks generally means denser scenarios. "
+        f"Interaction count adjusted from original 5m threshold to {interaction_distance}m threshold."
     )
 
 
@@ -513,6 +535,55 @@ def main():
 
     st.title("🚗 Waymo Validation Lab — Scenario Dashboard")
 
+    # ---- assumption controls ----
+    with st.sidebar:
+        st.header("⚙️ Assumption Controls")
+        
+        # Preset selector
+        preset = st.radio(
+            "Select Preset",
+            ["Conservative", "Balanced", "Strict"],
+            index=1,  # Default to Balanced
+            help="Choose preset values for risk and complexity thresholds"
+        )
+        
+        # Preset values
+        preset_values = {
+            "Conservative": {"ttc_warning": 4.0, "ttc_critical": 2.0, "interaction_distance": 7},
+            "Balanced": {"ttc_warning": 3.0, "ttc_critical": 1.5, "interaction_distance": 5},
+            "Strict": {"ttc_warning": 2.0, "ttc_critical": 1.0, "interaction_distance": 3}
+        }
+        
+        current_preset = preset_values[preset]
+        
+        # Sliders with preset defaults
+        ttc_warning = st.slider(
+            "TTC Warning Threshold (seconds)",
+            min_value=1.0,
+            max_value=5.0,
+            value=current_preset["ttc_warning"],
+            step=0.1,
+            help="Time-to-Collision threshold for warning level"
+        )
+        
+        ttc_critical = st.slider(
+            "TTC Critical Threshold (seconds)",
+            min_value=0.5,
+            max_value=3.0,
+            value=current_preset["ttc_critical"],
+            step=0.1,
+            help="Time-to-Collision threshold for critical level"
+        )
+        
+        interaction_distance = st.slider(
+            "Close Interaction Distance (meters)",
+            min_value=2,
+            max_value=10,
+            value=current_preset["interaction_distance"],
+            step=1,
+            help="Distance threshold for defining close interactions"
+        )
+
     # ---- load data ----
     scenarios = load_parquet_if_exists(SILVER_DIR / "scenarios.parquet")
     if scenarios is None:
@@ -544,13 +615,13 @@ def main():
     merged = build_merged_table(scenarios, scenario_metrics, interaction_metrics, risk_metrics, comfort_metrics)
 
     # ---- render sections ----
-    render_dataset_summary(scenarios, loaded_files)
+    render_dataset_summary(scenarios, loaded_files, ttc_warning, ttc_critical, interaction_distance)
     st.divider()
     render_top_scenarios_table(merged)
     st.divider()
-    render_risk_overview(merged)
+    render_risk_overview(merged, ttc_warning, ttc_critical)
     st.divider()
-    render_complexity_overview(merged)
+    render_complexity_overview(merged, interaction_distance)
     st.divider()
     render_risk_vs_complexity(merged)
     st.divider()
