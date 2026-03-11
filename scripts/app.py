@@ -1233,6 +1233,22 @@ def render_explorer_gif_grid(
         "Click **Review →** to investigate a scenario in detail."
     )
 
+    # Uniform tile height regardless of GIF aspect ratio
+    st.markdown(
+        """
+        <style>
+        [data-testid="column"] [data-testid="stImage"] img {
+            height: 260px;
+            width: 100%;
+            object-fit: contain;
+            background-color: #12121e;
+            border-radius: 6px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     available = [sid for sid in review_sorted_ids if (previews_dir / f"{sid}.gif").exists()]
 
     if not available:
