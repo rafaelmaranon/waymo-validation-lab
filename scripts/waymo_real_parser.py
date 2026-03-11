@@ -234,7 +234,7 @@ def main():
             old.unlink()
 
     print("Extracting scenarios...")
-    data = extract_scenarios(tfrecord_path, max_scenarios=50)
+    data = extract_scenarios(tfrecord_path, max_scenarios=250)
 
     print("\nExporting parquet →")
     export_parquet(data, silver_dir)
