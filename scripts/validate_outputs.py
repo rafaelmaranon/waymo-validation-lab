@@ -194,14 +194,10 @@ def validate_data_consistency(scenarios_df: pd.DataFrame, tracks_df: pd.DataFram
                 else:
                     print(f"⚠️  Some acceleration values may be unrealistic: max={accel_values.max():.1f} m/s²")
     
-    # Validate expected scenario count
-    expected_count = 10
+    # Report scenario count (no fixed expectation — count is set by MAX_SCENARIOS in waymo_real_parser.py)
     if scenarios_df is not None:
         actual_count = len(scenarios_df)
-        if actual_count == expected_count:
-            print(f"✅ Expected {expected_count} scenarios, found {actual_count}")
-        else:
-            print(f"⚠️  Expected {expected_count} scenarios, found {actual_count}")
+        print(f"✅ Scenario count: {actual_count} scenarios parsed")
 
 def main():
     print("=" * 60)
@@ -212,7 +208,7 @@ def main():
     project_root = Path(__file__).parent.parent
     silver_dir = project_root / 'data' / 'silver'
     gold_dir = project_root / 'data' / 'gold'
-    json_dir = project_root / 'data' / 'exports' / 'scenario_json'
+    json_dir = project_root / 'data' / 'exports' / 'scenario_json'  # optional; may not exist
     
     print("📁 VALIDATING FILE STRUCTURE")
     print("=" * 40)
@@ -286,11 +282,8 @@ def main():
     if scenarios_df is None or tracks_df is None or states_df is None or metrics_df is None:
         issues.append("Some parquet files failed to load")
     
-    if len(json_scenario_ids) != 10:
-        issues.append(f"Expected 10 JSON files, found {len(json_scenario_ids)}")
-    
-    if scenarios_df is not None and len(scenarios_df) != 10:
-        issues.append(f"Expected 10 scenarios, found {len(scenarios_df)}")
+    if scenarios_df is not None and len(scenarios_df) == 0:
+        issues.append("No scenarios found — pipeline may not have run")
     
     if issues:
         print("⚠️  VALIDATION ISSUES FOUND:")

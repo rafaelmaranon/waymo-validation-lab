@@ -17,7 +17,14 @@ A local-first analytics pipeline that parses real AV scenario recordings, comput
 
 ## Screenshot
 
-<!-- TODO: add screenshot before publishing -->
+<!-- Add screenshot before publishing:
+     1. Run: streamlit run scripts/app.py
+     2. Take a full-page screenshot of http://localhost:8501
+     3. Save to docs/screenshot.png
+     4. Replace this comment with: ![Dashboard](docs/screenshot.png)
+-->
+
+> Screenshot coming soon — run `streamlit run scripts/app.py` to see the live dashboard.
 
 ---
 
