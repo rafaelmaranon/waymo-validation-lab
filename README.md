@@ -8,6 +8,12 @@ A local-first analytics pipeline that parses real AV scenario recordings, comput
 
 ---
 
+## Screenshot
+
+![AV Validation Lab Dashboard](docs/screenshot.png)
+
+---
+
 ## What it does
 
 - Parses raw Waymo TFRecord scenario files (zero TensorFlow)
@@ -15,31 +21,19 @@ A local-first analytics pipeline that parses real AV scenario recordings, comput
 - Renders an interactive dashboard with scenario previews, metric summaries, and an interactive scatter map
 - Currently processes **250 scenarios · 18,151 actor tracks** from the Waymo validation split
 
-## Screenshot
-
-<!-- Add screenshot before publishing:
-     1. Run: streamlit run scripts/app.py
-     2. Take a full-page screenshot of http://localhost:8501
-     3. Save to docs/screenshot.png
-     4. Replace this comment with: ![Dashboard](docs/screenshot.png)
--->
-
-> Screenshot coming soon — run `streamlit run scripts/app.py` to see the live dashboard.
-
 ---
 
-## Key features
+## Scenario Explorer
 
-- Zero TensorFlow — protobuf decoded with `protoc` + standard `protobuf` Python package
-- Zero synthetic data — all trajectories from real Waymo sensor recordings
-- Three transparent, formula-driven scoring models (no ML black boxes)
-- Interactive Plotly scatter map with hover tooltips
-- Animated scenario GIF previews
-- BigQuery-compatible parquet schema for future fleet-scale analysis
+Animated previews of high-interaction scenarios extracted from the Waymo dataset.
+
+![Scenario Preview](docs/scenario_preview.gif)
 
 ---
 
 ## Architecture
+
+![Pipeline Overview](docs/pipeline_simple.png)
 
 ```
 Raw TFRecords (local, not in repo)
@@ -52,6 +46,17 @@ data/previews/  (scenario GIFs)
     ↓  scripts/app.py
 Streamlit dashboard
 ```
+
+---
+
+## Key features
+
+- Zero TensorFlow — protobuf decoded with `protoc` + standard `protobuf` Python package
+- Zero synthetic data — all trajectories from real Waymo sensor recordings
+- Three transparent, formula-driven scoring models (no ML black boxes)
+- Interactive Plotly scatter map with hover tooltips
+- Animated scenario GIF previews
+- BigQuery-compatible parquet schema for future fleet-scale analysis
 
 ---
 
