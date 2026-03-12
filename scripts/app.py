@@ -851,7 +851,7 @@ def render_explorer_gif_grid(
                 f'</div>',
                 unsafe_allow_html=True,
             )
-            st.markdown(f"**{sid[:8]}**  \nrisk **{r_s}** · ttc **{t_s}**  \n{trk} actors")
+            st.markdown(f"**{sid[:8]}**  \ninteraction score **{r_s}** · min TTC **{t_s}**  \n{trk} actors")
 
     # ── Metric summary cards ───────────────────────────────────
     st.divider()

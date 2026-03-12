@@ -136,3 +136,25 @@ This project was built using the Waymo Open Dataset provided by Waymo LLC.
 
 Python 3.10 · pandas · numpy · pyarrow · protobuf · Streamlit · Plotly · matplotlib
 
+---
+
+## Environments
+
+Full development environment (parser + web app):
+
+```bash
+pip install -r requirements.txt
+```
+
+Web app only:
+
+```bash
+pip install -r requirements-webapp.txt
+streamlit run scripts/app.py
+```
+
+---
+
+## License
+
+MIT © 2026 Rafael Marañon 
