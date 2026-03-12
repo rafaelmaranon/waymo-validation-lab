@@ -140,16 +140,16 @@ Python 3.10 · pandas · numpy · pyarrow · protobuf · Streamlit · Plotly · 
 
 ## Environments
 
-Full development environment (parser + web app):
+Full development / parser environment:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-parser.txt
 ```
 
 Web app only:
 
 ```bash
-pip install -r requirements-webapp.txt
+pip install -r requirements.txt
 streamlit run scripts/app.py
 ```
 
