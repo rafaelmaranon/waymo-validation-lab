@@ -1091,19 +1091,20 @@ def main():
     # ── page header ───────────────────────────────────────────────────────────
     st.markdown(
         """
-        <div style="padding: 24px 0 20px 0; border-bottom: 1px solid #d1d9e6; margin-bottom: 24px;">
-            <div style="font-size:0.72rem; font-weight:800; letter-spacing:0.18em;
-                        text-transform:uppercase; color:#3b82f6; margin-bottom:6px;">
+        <div style="padding: 48px 0 40px 0; border-bottom: 1px solid #e5e7eb; margin-bottom: 48px;">
+            <div style="font-size:2.4rem; font-weight:700; color:#1a2540; line-height:1.1; letter-spacing:-0.01em;">
                 AV Validation Lab
             </div>
-            <div style="font-size:1.75rem; font-weight:700; color:#1a2540; line-height:1.15;">
+            <div style="font-size:1.1rem; color:#4b5563; margin-top:10px; font-weight:400;">
                 Evaluation metrics derived from the Waymo Open Dataset
             </div>
-            <div style="margin-top:10px; font-size:0.85rem; color:#6b7280; line-height:1.5;">
-                250 scenarios &nbsp;·&nbsp; 18,151 actor tracks<br>
-                Waymo Open Motion Dataset (v1.3.1) &mdash; Validation Split<br>
-                Dataset: <a href="https://waymo.com/open/" style="color:#6b7280;">https://waymo.com/open/</a><br>
-                Source code: <a href="https://github.com/rafaelmaranon/waymo-validation-lab" style="color:#6b7280;">https://github.com/rafaelmaranon/waymo-validation-lab</a>
+            <div style="font-size:0.8rem; color:#6b7280; font-family:monospace; margin-top:8px;">
+                250 scenarios &nbsp;·&nbsp; 18,151 actor tracks &nbsp;·&nbsp; Motion Dataset v1.3.1 &nbsp;·&nbsp; Validation Split
+            </div>
+            <div style="font-size:0.8rem; margin-top:6px;">
+                <a href="https://waymo.com/open/" style="color:#3b82f6; text-decoration:none;">Dataset</a>
+                &nbsp;&nbsp;·&nbsp;&nbsp;
+                <a href="https://github.com/rafaelmaranon/waymo-validation-lab" style="color:#3b82f6; text-decoration:none;">GitHub</a>
             </div>
         </div>
         """,
