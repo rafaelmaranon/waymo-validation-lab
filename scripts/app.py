@@ -1091,11 +1091,12 @@ def main():
     # ── page header ───────────────────────────────────────────────────────────
     st.markdown(
         """
-        <div style="padding: 48px 0 40px 0; border-bottom: 1px solid #e5e7eb; margin-bottom: 48px;">
-            <div style="font-size:2.4rem; font-weight:700; color:#1a2540; line-height:1.1; letter-spacing:-0.01em;">
+        <div style="padding: 48px 0 40px 0; border-bottom: 1px solid #d1d9e6; margin-bottom: 48px;">
+            <div style="font-size:0.72rem; font-weight:800; letter-spacing:0.18em;
+                        text-transform:uppercase; color:#3b82f6; margin-bottom:8px;">
                 AV Validation Lab
             </div>
-            <div style="font-size:1.1rem; color:#4b5563; margin-top:10px; font-weight:400;">
+            <div style="font-size:1.75rem; font-weight:700; color:#1a2540; line-height:1.15;">
                 Evaluation metrics for Waymo Open Dataset scenarios
             </div>
             <div style="font-size:13px; color:#6b7280; font-family:monospace; margin-top:8px; line-height:1.6;">
