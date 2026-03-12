@@ -12,6 +12,7 @@ __pycache__/
 *.tfrecord
 *.tfrecord.gz
 *.tfrecords
+*.parquet
 
 # ── Generated data artifacts (local only) ────────────────────────────────────
 # Keep data/diagrams/ — static PNGs committed and used by the app
