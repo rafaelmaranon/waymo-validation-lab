@@ -1094,22 +1094,16 @@ def main():
         <div style="padding: 24px 0 20px 0; border-bottom: 1px solid #d1d9e6; margin-bottom: 24px;">
             <div style="font-size:0.72rem; font-weight:800; letter-spacing:0.18em;
                         text-transform:uppercase; color:#3b82f6; margin-bottom:6px;">
-                AV Scenario Validation Lab
+                AV Validation Lab
             </div>
             <div style="font-size:1.75rem; font-weight:700; color:#1a2540; line-height:1.15;">
-                Interactive scenario analysis built on the Waymo Open Dataset
+                Evaluation metrics derived from the Waymo Open Dataset
             </div>
-            <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                <span style="background:#eef2fa; border:1px solid #d1d9e6; border-radius:4px;
-                             padding:3px 10px; font-size:0.68rem; color:#5a6e99;
-                             font-family:monospace; letter-spacing:0.05em;">
-                    250 scenarios &nbsp;·&nbsp; 18,151 actor tracks
-                </span>
-                <span style="background:#eef2fa; border:1px solid #d1d9e6; border-radius:4px;
-                             padding:3px 10px; font-size:0.68rem; color:#5a6e99;
-                             font-family:monospace; letter-spacing:0.05em;">
-                    Dataset: Waymo Open Dataset (public release)
-                </span>
+            <div style="margin-top:10px; font-size:0.85rem; color:#6b7280; line-height:1.5;">
+                250 scenarios &nbsp;·&nbsp; 18,151 actor tracks<br>
+                Waymo Open Motion Dataset (v1.3.1) &mdash; Validation Split<br>
+                Dataset: <a href="https://waymo.com/open/" style="color:#6b7280;">https://waymo.com/open/</a><br>
+                Source code: <a href="https://github.com/rafaelmaranon/waymo-validation-lab" style="color:#6b7280;">https://github.com/rafaelmaranon/waymo-validation-lab</a>
             </div>
         </div>
         """,
@@ -1169,9 +1163,8 @@ def main():
 
     st.markdown(
         '<div class="av-footer">'
-        'Data: <a href="https://waymo.com/open/" style="color:#3b82f6; text-decoration:none;">Waymo Open Dataset</a>'
-        ' &nbsp;·&nbsp; Validation Split &nbsp;·&nbsp; Decoded via waymo-open-dataset protobufs'
-        ' &nbsp;·&nbsp; Zero TensorFlow &nbsp;·&nbsp; Zero synthetic data'
+        'Data: <a href="https://waymo.com/open/" style="color:#3b82f6; text-decoration:none;">Waymo Open Motion Dataset (v1.3.1)</a>'
+        ' &nbsp;·&nbsp; Validation Split &nbsp;·&nbsp; Evaluation metrics derived from actor trajectories'
         '</div>',
         unsafe_allow_html=True,
     )
