@@ -12,15 +12,27 @@ __pycache__/
 *.tfrecord
 *.tfrecord.gz
 *.tfrecords
-*.parquet
 
 # ── Generated data artifacts (local only) ────────────────────────────────────
 # Keep data/diagrams/ — static PNGs committed and used by the app
+# Keep data/gold/  — gold metrics committed so the dashboard runs from the repo
+# Keep 3 preview GIFs — committed for dashboard demo
 data/silver/
-data/gold/
-data/previews/
 data/previews-veritical/
 data/exports/
+
+# ignore all preview GIFs except the 3 committed demo files
+data/previews/*
+!data/previews/214dfc443104674a.gif
+!data/previews/2d84b1ab55ab81d3.gif
+!data/previews/32275d7231509117.gif
+
+# ignore all parquet except committed gold metrics
+*.parquet
+!data/gold/scenario_metrics.parquet
+!data/gold/interaction_metrics.parquet
+!data/gold/risk_metrics.parquet
+!data/gold/comfort_metrics.parquet
 
 # ── Personal and experimental folders ────────────────────────────────────────
 private-dev/

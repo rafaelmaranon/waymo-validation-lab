@@ -1131,18 +1131,17 @@ def main():
     interaction_distance = 5
 
     # ── load data ──────────────────────────────────────────────────────────────────────────
-    scenarios = load_parquet_if_exists(SILVER_DIR / "scenarios.parquet")
-    if scenarios is None:
-        st.error(
-            "❌ `data/silver/scenarios.parquet` missing. "
-            "Run: `python scripts/waymo_real_parser.py`"
-        )
-        return
-
     scenario_metrics    = load_parquet_if_exists(GOLD_DIR / "scenario_metrics.parquet")
     interaction_metrics = load_parquet_if_exists(GOLD_DIR / "interaction_metrics.parquet")
     risk_metrics        = load_parquet_if_exists(GOLD_DIR / "risk_metrics.parquet")
     comfort_metrics     = load_parquet_if_exists(GOLD_DIR / "comfort_metrics.parquet")
+
+    if scenario_metrics is None:
+        st.warning(
+            "Demo dataset not found. Run the pipeline or download demo artifacts.\n\n"
+            "Expected: `data/gold/scenario_metrics.parquet`"
+        )
+        return
 
     if interaction_metrics is None:
         st.error(
@@ -1150,6 +1149,10 @@ def main():
             "Run: `python scripts/compute_interaction_metrics.py`"
         )
         return
+
+    # Derive scenario-level frame from gold metrics (no silver required)
+    scenarios = scenario_metrics[["scenario_id", "num_tracks"]].copy()
+    scenarios["data_source"] = "real_waymo_protobuf"
 
     merged = build_merged_table(
         scenarios, scenario_metrics, interaction_metrics, risk_metrics, comfort_metrics
