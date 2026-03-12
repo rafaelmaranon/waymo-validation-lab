@@ -8,6 +8,10 @@ Showcases risk, complexity, and comfort metrics across 10 real AV scenarios.
 Run with: streamlit run scripts/app.py
 """
 
+# This Streamlit dashboard visualizes precomputed scenario metrics.
+# It reads data from data/gold/ and data/previews/.
+# The parsing pipeline (TFRecord → parquet → metrics) runs separately.
+
 import io
 import time
 import base64
