@@ -1178,8 +1178,8 @@ def main():
 
     st.markdown(
         '<div class="av-footer">'
-        'Data: <a href="https://waymo.com/open/" style="color:#3b82f6; text-decoration:none;">Waymo Open Motion Dataset (v1.3.1)</a>'
-        ' &nbsp;·&nbsp; Validation Split &nbsp;·&nbsp; Evaluation metrics derived from actor trajectories'
+        'Built using the <a href="https://waymo.com/open/" style="color:#3b82f6; text-decoration:none;">Waymo Open Dataset</a>'
+        ' &nbsp;·&nbsp; Data access subject to <a href="https://waymo.com/open/terms" style="color:#3b82f6; text-decoration:none;">Waymo terms</a>'
         '</div>',
         unsafe_allow_html=True,
     )

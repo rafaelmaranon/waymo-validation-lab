@@ -89,13 +89,16 @@ Full setup instructions: [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md)
 
 ---
 
-## Dataset
+## Data
 
-This project uses the **Waymo Open Motion Dataset v1.3.1**.
+This project uses the Waymo Open Dataset.
 
-You must download it yourself from: **https://waymo.com/open/**
+Waymo dataset files are not included in this repository. To reproduce the pipeline, download the dataset directly from Waymo and follow the setup instructions in `docs/LOCAL_SETUP.md`.
 
-The raw TFRecord files are never included in this repository.
+Dataset access and use are subject to the Waymo Open Dataset terms:
+https://waymo.com/open/terms
+
+This project was built using the Waymo Open Dataset provided by Waymo LLC.
 
 ---
 
