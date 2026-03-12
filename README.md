@@ -24,29 +24,6 @@ inspect without requiring large ML frameworks.
 
 ---
 
-## Architecture Overview
-
-The project has two logical components:
-
-**App (local pipeline)**  
-Runs the full workflow:
-- parses Waymo TFRecord scenario files
-- generates structured parquet tables
-- computes interaction, risk, and comfort metrics
-- generates preview GIFs
-- launches the Streamlit dashboard
-
-**WebApp (visualization layer)**  
-The dashboard itself is a visualization layer that reads precomputed artifacts:
-
-- `data/gold/*.parquet`
-- `data/previews/*.gif`
-
-The WebApp does **not parse TFRecords or run the pipeline**.  
-It simply visualizes the computed scenario metrics.
-
----
-
 ## Screenshot
 
 ![AV Validation Lab Dashboard](docs/screenshot.png)
