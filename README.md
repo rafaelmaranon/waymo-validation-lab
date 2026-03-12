@@ -8,6 +8,22 @@ A local-first analytics pipeline that parses real AV scenario recordings, comput
 
 ---
 
+## Why this exists
+
+Autonomous vehicle datasets contain thousands of complex multi-actor interactions.  
+However, inspecting these scenarios manually is difficult and existing tools often
+require heavy ML stacks or custom infrastructure.
+
+This project builds a lightweight validation pipeline that extracts interpretable
+safety signals from real Waymo Open Dataset scenarios — such as interaction
+intensity, time-to-collision, and comfort metrics — and surfaces them through an
+interactive scenario explorer.
+
+The goal is to make AV scenario analysis transparent, reproducible, and easy to
+inspect without requiring large ML frameworks.
+
+---
+
 ## Screenshot
 
 ![AV Validation Lab Dashboard](docs/screenshot.png)
