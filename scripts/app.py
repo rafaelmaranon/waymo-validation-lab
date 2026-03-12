@@ -964,12 +964,9 @@ def render_explorer_gif_grid(
             ),
         )
 
-        event = st.plotly_chart(
+        st.plotly_chart(
             fig_pl,
             use_container_width=True,
-            on_select="rerun",
-            selection_mode="points",
-            key="scatter_select",
         )
 
         st.caption("⬆ Top-right = priority review zone")
