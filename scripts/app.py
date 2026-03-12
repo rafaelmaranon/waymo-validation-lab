@@ -973,30 +973,6 @@ def render_explorer_gif_grid(
         )
 
         st.caption("⬆ Top-right = priority review zone")
-
-        # ── Selected Scenario panel ──────────────────────────────
-        pts = (event.selection.get("points") or []) if event and hasattr(event, "selection") else []
-        if pts:
-            pt = pts[0]
-            cd = pt.get("customdata", [])
-            def _s(i, fmt="{:.3f}"):
-                try:
-                    v = cd[i]
-                    return fmt.format(float(v)) if v is not None and str(v) != "nan" else "—"
-                except Exception:
-                    return "—"
-
-            st.markdown("---")
-            st.markdown("**Selected Scenario**")
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Scenario ID",       _s(0, "{}"))
-            c1.metric("Actors",            _s(6, "{:.0f}"))
-            c2.metric("Interaction Score", _s(1))
-            c2.metric("Complexity Score",  _s(2))
-            c3.metric("Comfort Score",     _s(3))
-            c3.metric("TTC < 3 s events",  _s(7, "{:.0f}"))
-            c4.metric("Min TTC",           _s(4, "{:.2f} s"))
-            c4.metric("Max Closing Speed", _s(5, "{:.1f} m/s"))
     else:
         st.info("Not enough data to render Interaction Score vs. Complexity chart.")
 
