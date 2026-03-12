@@ -968,8 +968,6 @@ def render_explorer_gif_grid(
             fig_pl,
             use_container_width=True,
         )
-
-        st.caption("⬆ Top-right = priority review zone")
     else:
         st.info("Not enough data to render Interaction Score vs. Complexity chart.")
 
