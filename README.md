@@ -1,16 +1,21 @@
 # AV Validation Lab
+**Scenario analysis and validation tooling for autonomous driving datasets.**
+
+[![Live Demo](https://img.shields.io/badge/Live-Demo-green)](https://waymo-validation-lab.streamlit.app/)
+[![Python](https://img.shields.io/badge/Python-3.10-blue)]
+[![License](https://img.shields.io/badge/License-MIT-lightgrey)]
 
 https://waymo-validation-lab.streamlit.app/
 
 **Evaluation metrics derived from the Waymo Open Dataset.**
 
-A local-first analytics pipeline that parses real AV scenario recordings, computes interaction, complexity, and comfort scores, and surfaces the results in an interactive Streamlit dashboard.
+A lightweight analytics pipeline that parses real AV scenario recordings, computes interaction, complexity, and comfort scores, and surfaces them in an interactive Streamlit dashboard.
 
-> ⚠️ The Waymo Open Dataset is **not included**. You must download it separately. See [Local Setup](docs/LOCAL_SETUP.md).
-
----
+⚠️ The Waymo Open Dataset is **not included**. You must download it separately. See [Local Setup](docs/LOCAL_SETUP.md).
 
 ## Why this exists
+
+<img src="docs/scenario_preview.gif" width="400" align="right"/>
 
 Autonomous vehicle datasets contain thousands of complex multi-actor interactions.  
 However, inspecting these scenarios manually is difficult and existing tools often
@@ -24,13 +29,11 @@ interactive scenario explorer.
 The goal is to make AV scenario analysis transparent, reproducible, and easy to
 inspect without requiring large ML frameworks.
 
----
-
 ## Screenshot
 
 ![AV Validation Lab Dashboard](docs/screenshot.png)
 
----
+Interactive dashboard built on the extracted scenario metrics.
 
 ## What it does
 
@@ -38,16 +41,6 @@ inspect without requiring large ML frameworks.
 - Computes three per-scenario scores: **Interaction Score**, **Complexity Score**, **Comfort Score**
 - Renders an interactive dashboard with scenario previews, metric summaries, and an interactive scatter map
 - Currently processes **250 scenarios · 18,151 actor tracks** from the Waymo validation split
-
----
-
-## Scenario Explorer
-
-Animated previews of high-interaction scenarios extracted from the Waymo dataset.
-
-![Scenario Preview](docs/scenario_preview.gif)
-
----
 
 ## Architecture
 
@@ -65,8 +58,6 @@ data/previews/  (scenario GIFs)
 Streamlit dashboard
 ```
 
----
-
 ## Key features
 
 - Zero TensorFlow — protobuf decoded with `protoc` + standard `protobuf` Python package
@@ -75,8 +66,6 @@ Streamlit dashboard
 - Interactive Plotly scatter map with hover tooltips
 - Animated scenario GIF previews
 - BigQuery-compatible parquet schema for future fleet-scale analysis
-
----
 
 ## Quick start
 
@@ -110,8 +99,6 @@ streamlit run scripts/app.py
 
 Full setup instructions: [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md)
 
----
-
 ## Data
 
 This project uses the Waymo Open Dataset.
@@ -123,8 +110,6 @@ https://waymo.com/open/terms
 
 This project was built using the Waymo Open Dataset provided by Waymo LLC.
 
----
-
 ## Docs
 
 - [Local Setup Guide](docs/LOCAL_SETUP.md)
@@ -132,13 +117,10 @@ This project was built using the Waymo Open Dataset provided by Waymo LLC.
 - [Repo Structure](docs/REPO_STRUCTURE.md)
 - [Deployment Notes](docs/DEPLOYMENT_STREAMLIT.md)
 
----
-
 ## Stack
 
 Python 3.10 · pandas · numpy · pyarrow · protobuf · Streamlit · Plotly · matplotlib
 
----
 
 ## Environments
 
@@ -155,8 +137,6 @@ pip install -r requirements.txt
 streamlit run scripts/app.py
 ```
 
----
-
 ## License
 
-MIT © 2026 Rafael Marañon 
+MIT
