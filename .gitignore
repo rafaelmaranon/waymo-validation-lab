@@ -1,51 +1,55 @@
-# Virtual environment
+# ── Python environment ────────────────────────────────────────────────────────
 .venv/
 venv/
 env/
-
-# Data directories and files
-data/
-*.tfrecord
-*.parquet
-*.json
-
-# Dataset directory (external storage)
-~/datasets/
-
-# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
 
-# IDE files
+# ── Raw Waymo dataset (NEVER commit) ─────────────────────────────────────────
+*.tfrecord
+*.tfrecord.gz
+*.tfrecords
+
+# ── Generated data artifacts (local only) ────────────────────────────────────
+# Keep data/diagrams/ — static PNGs committed and used by the app
+data/silver/
+data/gold/
+data/previews/
+data/previews-veritical/
+data/exports/
+
+# ── Personal and experimental folders ────────────────────────────────────────
+private-dev/
+experiments-not-for-github/
+
+# ── Local backup snapshots ───────────────────────────────────────────────────
+backup-local-working-*/
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── IDE files ────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Logs
-*.log
-logs/
-
-# OS files
+# ── OS files ─────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Jupyter notebooks
-.ipynb_checkpoints
+# ── Jupyter ──────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
 
-# Coverage reports
+# ── Test / coverage ──────────────────────────────────────────────────────────
 htmlcov/
 .coverage
 .pytest_cache/
 
-# Temporary files
+# ── Temp ─────────────────────────────────────────────────────────────────────
 *.tmp
 *.temp
-
-.venv/
-data/
-*.tfrecord
-*.parquet

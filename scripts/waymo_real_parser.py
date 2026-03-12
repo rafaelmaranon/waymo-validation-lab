@@ -31,6 +31,14 @@ except ImportError as e:
 OBJ_TYPE_MAP = {0: "UNSET", 1: "VEHICLE", 2: "PEDESTRIAN", 3: "CYCLIST", 4: "OTHER"}
 DATA_SOURCE = "real_waymo_protobuf"
 
+# ── Scenario limit ──────────────────────────────────────────────────────────
+# Number of scenarios to parse from the TFRecord file.
+# Change this value to control how many scenarios are processed.
+#   250  → current default (public demo)
+#   None → parse all available scenarios
+#   10   → quick test run
+MAX_SCENARIOS = 250
+
 
 # ---------- TFRecord reader (pure Python, no TF) ----------
 def read_tfrecord(tfrecord_path: Path) -> Iterator[bytes]:
@@ -234,7 +242,7 @@ def main():
             old.unlink()
 
     print("Extracting scenarios...")
-    data = extract_scenarios(tfrecord_path, max_scenarios=250)
+    data = extract_scenarios(tfrecord_path, max_scenarios=MAX_SCENARIOS)
 
     print("\nExporting parquet →")
     export_parquet(data, silver_dir)
